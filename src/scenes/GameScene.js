@@ -15,9 +15,32 @@ export default class GameScene extends Phaser.Scene {
     this.tiles = new Map(); // 타일 저장 (key: "q,r")
     this.isGameOver = false;
 
-    // 게임 설정
-    this.tileSize = 40; // 육각형 크기
-    this.gridRadius = 4; // 그리드 반경
+    // 모바일 감지
+    this.isMobile = this.sys.game.device.os.android ||
+                     this.sys.game.device.os.iOS ||
+                     this.sys.game.device.os.windowsPhone ||
+                     this.cameras.main.width <= 768;
+
+    // 게임 설정 (모바일 대응)
+    const screenWidth = this.cameras.main.width;
+    const screenHeight = this.cameras.main.height;
+
+    // 화면 크기에 따라 타일 크기와 그리드 반경 조정
+    if (this.isMobile) {
+      if (screenWidth <= 360) {
+        this.tileSize = 25;
+        this.gridRadius = 3;
+      } else if (screenWidth <= 480) {
+        this.tileSize = 30;
+        this.gridRadius = 3;
+      } else {
+        this.tileSize = 35;
+        this.gridRadius = 4;
+      }
+    } else {
+      this.tileSize = 40;
+      this.gridRadius = 4;
+    }
   }
 
   create() {
@@ -39,23 +62,28 @@ export default class GameScene extends Phaser.Scene {
   createUI() {
     const { width } = this.cameras.main;
 
+    // 모바일에 맞는 폰트 크기 설정
+    const baseFontSize = this.isMobile ? (width <= 360 ? 16 : 18) : 24;
+    const comboFontSize = this.isMobile ? (width <= 360 ? 20 : 22) : 28;
+    const padding = this.isMobile ? 10 : 20;
+
     // 점수 표시
-    this.scoreText = this.add.text(20, 20, '점수: 0', {
-      fontSize: '24px',
+    this.scoreText = this.add.text(padding, padding, '점수: 0', {
+      fontSize: `${baseFontSize}px`,
       fill: '#ffffff',
       fontStyle: 'bold'
     });
 
     // 시간 표시
-    this.timeText = this.add.text(width / 2, 20, '시간: 60', {
-      fontSize: '24px',
+    this.timeText = this.add.text(width / 2, padding, '시간: 60', {
+      fontSize: `${baseFontSize}px`,
       fill: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
     // 콤보 표시
-    this.comboText = this.add.text(width - 20, 20, '', {
-      fontSize: '28px',
+    this.comboText = this.add.text(width - padding, padding, '', {
+      fontSize: `${comboFontSize}px`,
       fill: '#ffff00',
       fontStyle: 'bold'
     }).setOrigin(1, 0);
@@ -94,9 +122,10 @@ export default class GameScene extends Phaser.Scene {
     const container = this.add.container(x, y);
     container.add(hexagon);
 
-    // HP 텍스트
+    // HP 텍스트 (모바일 대응 폰트 크기)
+    const hpFontSize = this.isMobile ? (this.tileSize <= 25 ? 14 : 16) : 20;
     const hpText = this.add.text(0, 0, maxHp, {
-      fontSize: '20px',
+      fontSize: `${hpFontSize}px`,
       fill: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -114,8 +143,9 @@ export default class GameScene extends Phaser.Scene {
       isBroken: false
     };
 
-    // 클릭 이벤트
-    container.setSize(this.tileSize * 2, this.tileSize * 2);
+    // 터치/클릭 이벤트 (모바일에서 더 큰 터치 영역)
+    const touchAreaSize = this.isMobile ? this.tileSize * 2.5 : this.tileSize * 2;
+    container.setSize(touchAreaSize, touchAreaSize);
     container.setInteractive();
     container.on('pointerdown', () => this.onTileClick(tileData));
 
