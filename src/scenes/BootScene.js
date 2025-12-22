@@ -10,8 +10,19 @@ export default class BootScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
+    // 모바일 감지
+    const isMobile = this.sys.game.device.os.android ||
+                     this.sys.game.device.os.iOS ||
+                     this.sys.game.device.os.windowsPhone ||
+                     width <= 768;
+
+    // 모바일에 맞는 폰트 크기 설정
+    const fontSize = isMobile ? (width <= 360 ? 18 : 20) : 24;
+    const barWidth = isMobile ? Math.min(width - 80, 280) : 320;
+    const barHeight = isMobile ? 40 : 50;
+
     const loadingText = this.add.text(width / 2, height / 2 - 50, '로딩 중...', {
-      fontSize: '24px',
+      fontSize: `${fontSize}px`,
       fill: '#ffffff'
     });
     loadingText.setOrigin(0.5);
@@ -19,12 +30,14 @@ export default class BootScene extends Phaser.Scene {
     const progressBar = this.add.graphics();
     const progressBox = this.add.graphics();
     progressBox.fillStyle(0x222222, 0.8);
-    progressBox.fillRect(width / 2 - 160, height / 2, 320, 50);
+    progressBox.fillRect(width / 2 - barWidth / 2, height / 2, barWidth, barHeight);
 
     this.load.on('progress', (value) => {
       progressBar.clear();
       progressBar.fillStyle(0x00ffff, 1);
-      progressBar.fillRect(width / 2 - 150, height / 2 + 10, 300 * value, 30);
+      const innerBarWidth = barWidth - 20;
+      const innerBarHeight = barHeight - 20;
+      progressBar.fillRect(width / 2 - innerBarWidth / 2, height / 2 + 10, innerBarWidth * value, innerBarHeight);
     });
 
     this.load.on('complete', () => {
