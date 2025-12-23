@@ -39,7 +39,7 @@ export default class GameScene extends Phaser.Scene {
     this.createHexGrid();
 
     // 초기 배치 및 리사이즈 핸들링
-    this.onResize(this.scale.gameSize, true);
+    this.onResize(this.scale.gameSize);
     this.scale.on('resize', this.onResize, this);
     this.events.on('shutdown', this.onShutdown, this);
 
@@ -280,12 +280,11 @@ export default class GameScene extends Phaser.Scene {
     return 1.0;
   }
 
-  onResize(gameSize, maybeForceRedraw) {
-    const forceRedraw = typeof maybeForceRedraw === 'boolean' ? maybeForceRedraw : false;
+  onResize(gameSize) {
     const { width, height } = gameSize;
-    const padding = this.isTouch ? 10 : 20;
+    const margin = 16;
     const baseFontSize = width <= 360 ? 16 : this.isTouch ? 18 : 24;
-    const comboFontSize = width <= 360 ? 20 : this.isTouch ? 22 : 28;
+    const comboFontSize = baseFontSize + 6;
 
     this.updateLayoutConfig(gameSize);
 
@@ -294,13 +293,13 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.scoreText.setFontSize(baseFontSize);
-    this.scoreText.setPosition(padding, padding);
+    this.scoreText.setPosition(margin, margin);
 
     this.turnsText.setFontSize(baseFontSize);
-    this.turnsText.setPosition(width / 2, padding);
+    this.turnsText.setPosition(width / 2, margin);
 
     this.comboText.setFontSize(comboFontSize);
-    this.comboText.setPosition(width - padding, padding);
+    this.comboText.setPosition(width - margin, margin);
 
     this.gridCenter = { x: width / 2, y: height / 2 };
     this.tiles.forEach((tile) => {
@@ -312,7 +311,7 @@ export default class GameScene extends Phaser.Scene {
         this.gridCenter.y + pos.y
       );
 
-      if (forceRedraw || tile.tileSize !== this.tileSize) {
+      if (tile.tileSize !== this.tileSize) {
         tile.tileSize = this.tileSize;
         const newColor = this.getColorByHP(tile.hp);
         tile.hexagon.clear();
