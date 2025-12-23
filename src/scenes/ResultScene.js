@@ -7,6 +7,9 @@ export default class ResultScene extends Phaser.Scene {
 
   init(data) {
     this.finalScore = data.score || 0;
+    this.isWin = Boolean(data.isWin);
+    this.turnsRemaining = data.turnsRemaining ?? 0;
+    this.turnsTotal = data.turnsTotal ?? 0;
     this.isTouch = this.sys.game.device.input.touch;
   }
 
@@ -17,16 +20,24 @@ export default class ResultScene extends Phaser.Scene {
     this.background = this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
 
     // 게임 오버 텍스트
-    this.titleText = this.add.text(width / 2, height / 3, '게임 종료!', {
+    const title = this.isWin ? 'CLEAR!' : 'FAILED';
+    this.titleText = this.add.text(width / 2, height / 3, title, {
       fontSize: '48px',
       fill: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     // 최종 점수
-    this.scoreText = this.add.text(width / 2, height / 2 - 20, `최종 점수: ${this.finalScore}`, {
+    this.scoreText = this.add.text(width / 2, height / 2 - 50, `Score: ${this.finalScore}`, {
       fontSize: '32px',
       fill: '#00ffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // 남은 턴
+    this.turnsText = this.add.text(width / 2, height / 2 - 10, `Turns Left: ${this.turnsRemaining} / ${this.turnsTotal}`, {
+      fontSize: '24px',
+      fill: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
@@ -96,7 +107,12 @@ export default class ResultScene extends Phaser.Scene {
     this.titleText.setPosition(width / 2, height / 3);
 
     this.scoreText.setFontSize(scoreFontSize);
-    this.scoreText.setPosition(width / 2, height / 2 - 20);
+    this.scoreText.setPosition(width / 2, height / 2 - 50);
+
+    if (this.turnsText) {
+      this.turnsText.setFontSize(normalFontSize);
+      this.turnsText.setPosition(width / 2, height / 2 - 10);
+    }
 
     if (this.newRecordText) {
       this.newRecordText.setFontSize(normalFontSize);

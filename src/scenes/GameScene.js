@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { axialToPixel, getNeighbors } from '../utils/hexUtils.js';
 
+const TURN_FACTOR = 0.55;
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
@@ -11,9 +13,12 @@ export default class GameScene extends Phaser.Scene {
     this.score = 0;
     this.combo = 0;
     this.comboTimer = null;
-    this.timeLeft = 60; // 60초 제한
+    this.turnsTotal = 0;
+    this.turnsRemaining = 0;
+    this.totalHP = 0;
     this.tiles = new Map(); // 타일 저장 (key: "q,r")
     this.isGameOver = false;
+    this.winLoseCheckTimer = null;
 
     this.isTouch = this.sys.game.device.input.touch;
 
@@ -38,8 +43,8 @@ export default class GameScene extends Phaser.Scene {
     this.scale.on('resize', this.onResize, this);
     this.events.on('shutdown', this.onShutdown, this);
 
-    // 타이머 시작
-    this.startTimer();
+    // 턴 초기화
+    this.initializeTurns();
   }
 
   createUI() {
@@ -50,8 +55,8 @@ export default class GameScene extends Phaser.Scene {
       fontStyle: 'bold'
     });
 
-    // 시간 표시
-    this.timeText = this.add.text(0, 0, '시간: 60', {
+    // 턴 표시
+    this.turnsText = this.add.text(0, 0, 'TURNS: 0 / 0', {
       fontSize: '24px',
       fill: '#ffffff',
       fontStyle: 'bold'
@@ -165,6 +170,8 @@ export default class GameScene extends Phaser.Scene {
   onTileClick(tile) {
     if (this.isGameOver || tile.isBroken) return;
 
+    this.consumeTurn();
+
     // HP 감소
     tile.hp -= 1;
 
@@ -187,6 +194,8 @@ export default class GameScene extends Phaser.Scene {
       tile.hexagon.clear();
       this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
     }
+
+    this.scheduleWinLoseCheck();
   }
 
   breakTile(tile, isChain = false) {
@@ -238,6 +247,8 @@ export default class GameScene extends Phaser.Scene {
         }
       }
     });
+
+    this.scheduleWinLoseCheck();
   }
 
   increaseCombo() {
@@ -285,8 +296,8 @@ export default class GameScene extends Phaser.Scene {
     this.scoreText.setFontSize(baseFontSize);
     this.scoreText.setPosition(padding, padding);
 
-    this.timeText.setFontSize(baseFontSize);
-    this.timeText.setPosition(width / 2, padding);
+    this.turnsText.setFontSize(baseFontSize);
+    this.turnsText.setPosition(width / 2, padding);
 
     this.comboText.setFontSize(comboFontSize);
     this.comboText.setPosition(width - padding, padding);
@@ -316,27 +327,89 @@ export default class GameScene extends Phaser.Scene {
     this.scale.off('resize', this.onResize, this);
   }
 
-  startTimer() {
-    this.time.addEvent({
-      delay: 1000,
-      callback: () => {
-        this.timeLeft -= 1;
-        this.timeText.setText(`시간: ${this.timeLeft}`);
+  initializeTurns() {
+    this.totalHP = this.calculateTotalHP();
+    this.turnsTotal = this.calculateTurnsTotal(this.totalHP);
+    this.turnsRemaining = this.turnsTotal;
+    this.updateTurnsText();
+  }
 
-        if (this.timeLeft <= 0) {
-          this.endGame();
-        }
-      },
-      loop: true
+  calculateTotalHP() {
+    let total = 0;
+    this.tiles.forEach((tile) => {
+      total += tile.maxHp;
+    });
+    return total;
+  }
+
+  calculateTurnsTotal(totalHP) {
+    return Math.ceil(totalHP * TURN_FACTOR);
+  }
+
+  getRemainingTilesCount() {
+    let remaining = 0;
+    this.tiles.forEach((tile) => {
+      if (!tile.isBroken) {
+        remaining += 1;
+      }
+    });
+    return remaining;
+  }
+
+  isAllTilesBroken() {
+    return this.getRemainingTilesCount() === 0;
+  }
+
+  consumeTurn() {
+    if (this.isGameOver) return;
+    this.turnsRemaining = Math.max(0, this.turnsRemaining - 1);
+    this.updateTurnsText();
+  }
+
+  updateTurnsText() {
+    if (this.turnsText) {
+      this.turnsText.setText(`TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`);
+    }
+  }
+
+  scheduleWinLoseCheck() {
+    if (this.winLoseCheckTimer) {
+      this.winLoseCheckTimer.remove(false);
+    }
+
+    this.winLoseCheckTimer = this.time.delayedCall(250, () => {
+      this.winLoseCheckTimer = null;
+      this.checkWinLose();
     });
   }
 
-  endGame() {
+  checkWinLose() {
+    if (this.isGameOver) return;
+
+    if (this.isAllTilesBroken()) {
+      this.endGame(true);
+      return;
+    }
+
+    if (this.turnsRemaining <= 0) {
+      this.endGame(false);
+    }
+  }
+
+  endGame(isWin) {
+    if (this.isGameOver) return;
     this.isGameOver = true;
+
+    const resultData = {
+      score: this.score,
+      isWin: Boolean(isWin),
+      turnsRemaining: this.turnsRemaining,
+      turnsTotal: this.turnsTotal
+    };
 
     // 게임 종료 후 결과 화면으로 이동
     this.time.delayedCall(500, () => {
-      this.scene.start('ResultScene', { score: this.score });
+      this.scene.start('ResultScene', resultData);
     });
   }
 
