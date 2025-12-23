@@ -23,8 +23,8 @@ export default class BootScene extends Phaser.Scene {
     });
 
     // 여기에 추후 에셋 로드 추가
-    // this.load.image('ice-tile', 'assets/ice-tile.png');
-    // this.load.audio('crack', 'assets/crack.mp3');
+    // this.load.image('ice-tile', '/assets/ice-tile.png');
+    // this.load.audio('crack', '/assets/crack.mp3');
   }
 
   create() {
