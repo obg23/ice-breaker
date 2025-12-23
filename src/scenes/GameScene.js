@@ -92,8 +92,8 @@ export default class GameScene extends Phaser.Scene {
     const pos = axialToPixel(q, r, this.tileSize);
     const { x, y } = pos;
 
-    // 랜덤 HP (1~5)
-    const maxHp = Phaser.Math.Between(1, 5);
+    // 랜덤 HP (1~6)
+    const maxHp = Phaser.Math.Between(1, 6);
 
     // 육각형 그래픽 생성
     const hexagon = this.add.graphics();
@@ -161,6 +161,7 @@ export default class GameScene extends Phaser.Scene {
 
   getColorByHP(hp) {
     switch (hp) {
+      case 6: return 0x082f6b; // 최상위 진한 파랑 (최대 HP)
       case 5: return 0x0d47a1; // 진한 파랑 (최대 HP)
       case 4: return 0x1976d2; // 파랑
       case 3: return 0x4a90e2; // 중간 파랑
