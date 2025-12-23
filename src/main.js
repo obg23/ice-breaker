@@ -9,10 +9,13 @@ const config = {
   parent: 'game-container',
   scene: [BootScene, GameScene, ResultScene],
   scale: {
-    mode: Phaser.Scale.FIT,
+    // ENVELOP fills the screen aggressively (edges may be cropped on extreme aspect ratios)
+    mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: 800,
     height: 600
+    // Alternative: use FIT for no cropping at the expense of potential letterboxing
+    // mode: Phaser.Scale.FIT,
   },
   physics: {
     default: 'arcade',
