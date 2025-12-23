@@ -6,44 +6,20 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // 로딩 화면 표시
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    this.loadingProgress = 0;
+    this.updateLoadingLayout(this.scale.gameSize);
 
-    // 모바일 감지
-    const isMobile = this.sys.game.device.os.android ||
-                     this.sys.game.device.os.iOS ||
-                     this.sys.game.device.os.windowsPhone ||
-                     width <= 768;
-
-    // 모바일에 맞는 폰트 크기 설정
-    const fontSize = isMobile ? (width <= 360 ? 18 : 20) : 24;
-    const barWidth = isMobile ? Math.min(width - 80, 280) : 320;
-    const barHeight = isMobile ? 40 : 50;
-
-    const loadingText = this.add.text(width / 2, height / 2 - 50, '로딩 중...', {
-      fontSize: `${fontSize}px`,
-      fill: '#ffffff'
-    });
-    loadingText.setOrigin(0.5);
-
-    const progressBar = this.add.graphics();
-    const progressBox = this.add.graphics();
-    progressBox.fillStyle(0x222222, 0.8);
-    progressBox.fillRect(width / 2 - barWidth / 2, height / 2, barWidth, barHeight);
+    this.scale.on('resize', this.onResize, this);
+    this.events.on('shutdown', this.onShutdown, this);
 
     this.load.on('progress', (value) => {
-      progressBar.clear();
-      progressBar.fillStyle(0x00ffff, 1);
-      const innerBarWidth = barWidth - 20;
-      const innerBarHeight = barHeight - 20;
-      progressBar.fillRect(width / 2 - innerBarWidth / 2, height / 2 + 10, innerBarWidth * value, innerBarHeight);
+      this.updateProgressBar(value);
     });
 
     this.load.on('complete', () => {
-      progressBar.destroy();
-      progressBox.destroy();
-      loadingText.destroy();
+      this.progressBar?.destroy();
+      this.progressBox?.destroy();
+      this.loadingText?.destroy();
     });
 
     // 여기에 추후 에셋 로드 추가
@@ -53,5 +29,66 @@ export default class BootScene extends Phaser.Scene {
 
   create() {
     this.scene.start('GameScene');
+  }
+
+  updateLoadingLayout(gameSize) {
+    this.lastGameSize = gameSize;
+    const { width, height } = gameSize;
+    const isSmallWidth = width <= 480;
+
+    const fontSize = isSmallWidth ? (width <= 360 ? 18 : 20) : 24;
+    const barWidth = isSmallWidth ? Math.min(width - 80, 280) : 320;
+    const barHeight = isSmallWidth ? 40 : 50;
+
+    this.loadingDimensions = { barWidth, barHeight, fontSize };
+
+    if (!this.loadingText) {
+      this.loadingText = this.add.text(width / 2, height / 2 - 50, '로딩 중...', {
+        fontSize: `${fontSize}px`,
+        fill: '#ffffff'
+      }).setOrigin(0.5);
+    } else {
+      this.loadingText.setFontSize(fontSize);
+      this.loadingText.setPosition(width / 2, height / 2 - 50);
+    }
+
+    if (!this.progressBox) {
+      this.progressBox = this.add.graphics();
+    }
+    this.progressBox.clear();
+    this.progressBox.fillStyle(0x222222, 0.8);
+    this.progressBox.fillRect(width / 2 - barWidth / 2, height / 2, barWidth, barHeight);
+
+    if (!this.progressBar) {
+      this.progressBar = this.add.graphics();
+    }
+    this.updateProgressBar(this.loadingProgress);
+  }
+
+  updateProgressBar(value) {
+    this.loadingProgress = value;
+    if (!this.progressBar || !this.loadingDimensions || !this.lastGameSize) return;
+
+    const { width, height } = this.lastGameSize;
+    const { barWidth, barHeight } = this.loadingDimensions;
+
+    this.progressBar.clear();
+    this.progressBar.fillStyle(0x00ffff, 1);
+    const innerBarWidth = barWidth - 20;
+    const innerBarHeight = barHeight - 20;
+    this.progressBar.fillRect(
+      width / 2 - innerBarWidth / 2,
+      height / 2 + 10,
+      innerBarWidth * value,
+      innerBarHeight
+    );
+  }
+
+  onResize(gameSize) {
+    this.updateLoadingLayout(gameSize);
+  }
+
+  onShutdown() {
+    this.scale.off('resize', this.onResize, this);
   }
 }
