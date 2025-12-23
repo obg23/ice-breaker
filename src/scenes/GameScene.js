@@ -15,28 +15,19 @@ export default class GameScene extends Phaser.Scene {
     this.tiles = new Map(); // 타일 저장 (key: "q,r")
     this.isGameOver = false;
 
-    // 모바일 감지
-    this.isMobile = this.sys.game.device.os.android ||
-                     this.sys.game.device.os.iOS ||
-                     this.sys.game.device.os.windowsPhone ||
-                     this.cameras.main.width <= 768;
+    this.isTouch = this.sys.game.device.input.touch;
 
-    // 게임 설정 (모바일 대응)
-    const screenWidth = this.cameras.main.width;
-    const screenHeight = this.cameras.main.height;
-
-    // 화면 크기에 따라 타일 크기와 그리드 반경 조정
-    if (this.isMobile) {
-      if (screenWidth <= 360) {
-        this.tileSize = 25;
-        this.gridRadius = 3;
-      } else if (screenWidth <= 480) {
-        this.tileSize = 30;
-        this.gridRadius = 3;
-      } else {
-        this.tileSize = 35;
-        this.gridRadius = 4;
-      }
+    // 게임 설정 (화면 크기 기반)
+    const { width } = this.scale.gameSize;
+    if (width <= 360) {
+      this.tileSize = 25;
+      this.gridRadius = 3;
+    } else if (width <= 480) {
+      this.tileSize = 30;
+      this.gridRadius = 3;
+    } else if (width <= 720) {
+      this.tileSize = 35;
+      this.gridRadius = 4;
     } else {
       this.tileSize = 40;
       this.gridRadius = 4;
@@ -44,10 +35,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.cameras.main;
+    const { width, height } = this.scale.gameSize;
 
     // 배경
-    this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
+    this.background = this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
 
     // UI 생성
     this.createUI();
@@ -55,44 +46,41 @@ export default class GameScene extends Phaser.Scene {
     // 육각형 그리드 생성
     this.createHexGrid();
 
+    // 초기 배치 및 리사이즈 핸들링
+    this.onResize(this.scale.gameSize);
+    this.scale.on('resize', this.onResize, this);
+    this.events.on('shutdown', this.onShutdown, this);
+
     // 타이머 시작
     this.startTimer();
   }
 
   createUI() {
-    const { width } = this.cameras.main;
-
-    // 모바일에 맞는 폰트 크기 설정
-    const baseFontSize = this.isMobile ? (width <= 360 ? 16 : 18) : 24;
-    const comboFontSize = this.isMobile ? (width <= 360 ? 20 : 22) : 28;
-    const padding = this.isMobile ? 10 : 20;
-
     // 점수 표시
-    this.scoreText = this.add.text(padding, padding, '점수: 0', {
-      fontSize: `${baseFontSize}px`,
+    this.scoreText = this.add.text(0, 0, '점수: 0', {
+      fontSize: '24px',
       fill: '#ffffff',
       fontStyle: 'bold'
     });
 
     // 시간 표시
-    this.timeText = this.add.text(width / 2, padding, '시간: 60', {
-      fontSize: `${baseFontSize}px`,
+    this.timeText = this.add.text(0, 0, '시간: 60', {
+      fontSize: '24px',
       fill: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
     // 콤보 표시
-    this.comboText = this.add.text(width - padding, padding, '', {
-      fontSize: `${comboFontSize}px`,
+    this.comboText = this.add.text(0, 0, '', {
+      fontSize: '28px',
       fill: '#ffff00',
       fontStyle: 'bold'
     }).setOrigin(1, 0);
   }
 
   createHexGrid() {
-    const { width, height } = this.cameras.main;
-    const centerX = width / 2;
-    const centerY = height / 2 + 20;
+    const { width, height } = this.scale.gameSize;
+    this.gridCenter = { x: width / 2, y: height / 2 };
 
     // 육각형 그리드 생성 (axial coordinates)
     for (let q = -this.gridRadius; q <= this.gridRadius; q++) {
@@ -100,15 +88,15 @@ export default class GameScene extends Phaser.Scene {
       const r2 = Math.min(this.gridRadius, -q + this.gridRadius);
 
       for (let r = r1; r <= r2; r++) {
-        this.createIceTile(q, r, centerX, centerY);
+        this.createIceTile(q, r);
       }
     }
   }
 
-  createIceTile(q, r, centerX, centerY) {
+  createIceTile(q, r) {
     const pos = axialToPixel(q, r, this.tileSize);
-    const x = centerX + pos.x;
-    const y = centerY + pos.y;
+    const x = this.gridCenter.x + pos.x;
+    const y = this.gridCenter.y + pos.y;
 
     // 랜덤 HP (1~5)
     const maxHp = Phaser.Math.Between(1, 5);
@@ -123,7 +111,7 @@ export default class GameScene extends Phaser.Scene {
     container.add(hexagon);
 
     // HP 텍스트 (모바일 대응 폰트 크기)
-    const hpFontSize = this.isMobile ? (this.tileSize <= 25 ? 14 : 16) : 20;
+    const hpFontSize = this.isTouch ? (this.tileSize <= 25 ? 14 : 16) : 20;
     const hpText = this.add.text(0, 0, maxHp, {
       fontSize: `${hpFontSize}px`,
       fill: '#ffffff',
@@ -140,11 +128,12 @@ export default class GameScene extends Phaser.Scene {
       container,
       hexagon,
       hpText,
-      isBroken: false
+      isBroken: false,
+      relativePosition: { x: pos.x, y: pos.y }
     };
 
     // 터치/클릭 이벤트 (모바일에서 더 큰 터치 영역)
-    const touchAreaSize = this.isMobile ? this.tileSize * 2.5 : this.tileSize * 2;
+    const touchAreaSize = this.isTouch ? this.tileSize * 2.5 : this.tileSize * 2;
     container.setSize(touchAreaSize, touchAreaSize);
     container.setInteractive();
     container.on('pointerdown', () => this.onTileClick(tileData));
@@ -292,6 +281,38 @@ export default class GameScene extends Phaser.Scene {
     if (this.combo >= 7) return 2.0;
     if (this.combo >= 4) return 1.5;
     return 1.0;
+  }
+
+  onResize(gameSize) {
+    const { width, height } = gameSize;
+    const padding = this.isTouch ? 10 : 20;
+    const baseFontSize = width <= 360 ? 16 : this.isTouch ? 18 : 24;
+    const comboFontSize = width <= 360 ? 20 : this.isTouch ? 22 : 28;
+
+    if (this.background) {
+      this.background.setSize(width, height);
+    }
+
+    this.scoreText.setFontSize(baseFontSize);
+    this.scoreText.setPosition(padding, padding);
+
+    this.timeText.setFontSize(baseFontSize);
+    this.timeText.setPosition(width / 2, padding);
+
+    this.comboText.setFontSize(comboFontSize);
+    this.comboText.setPosition(width - padding, padding);
+
+    this.gridCenter = { x: width / 2, y: height / 2 };
+    this.tiles.forEach((tile) => {
+      tile.container.setPosition(
+        this.gridCenter.x + tile.relativePosition.x,
+        this.gridCenter.y + tile.relativePosition.y
+      );
+    });
+  }
+
+  onShutdown() {
+    this.scale.off('resize', this.onResize, this);
   }
 
   startTimer() {
