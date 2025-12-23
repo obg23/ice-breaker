@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { axialToPixel, getNeighbors } from '../utils/hexUtils.js';
 
 const TURN_FACTOR = 0.55;
+const UI_TOP = 60;
+const PADDING = 16;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -73,6 +75,7 @@ export default class GameScene extends Phaser.Scene {
   createHexGrid() {
     const { width, height } = this.scale.gameSize;
     this.gridCenter = { x: width / 2, y: height / 2 };
+    this.gridContainer = this.add.container(this.gridCenter.x, this.gridCenter.y);
 
     // 육각형 그리드 생성 (axial coordinates)
     for (let q = -this.gridRadius; q <= this.gridRadius; q++) {
@@ -87,8 +90,7 @@ export default class GameScene extends Phaser.Scene {
 
   createIceTile(q, r) {
     const pos = axialToPixel(q, r, this.tileSize);
-    const x = this.gridCenter.x + pos.x;
-    const y = this.gridCenter.y + pos.y;
+    const { x, y } = pos;
 
     // 랜덤 HP (1~5)
     const maxHp = Phaser.Math.Between(1, 5);
@@ -109,6 +111,7 @@ export default class GameScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
     container.add(hpText);
+    this.gridContainer.add(container);
 
     // 타일 데이터
     const tileData = {
@@ -282,7 +285,6 @@ export default class GameScene extends Phaser.Scene {
 
   onResize(gameSize) {
     const { width, height } = gameSize;
-    const margin = 16;
     const baseFontSize = width <= 360 ? 16 : this.isTouch ? 18 : 24;
     const comboFontSize = baseFontSize + 6;
 
@@ -293,23 +295,26 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.scoreText.setFontSize(baseFontSize);
-    this.scoreText.setPosition(margin, margin);
+    this.scoreText.setPosition(PADDING, PADDING);
 
     this.turnsText.setFontSize(baseFontSize);
-    this.turnsText.setPosition(width / 2, margin);
+    this.turnsText.setPosition(width / 2, PADDING);
 
     this.comboText.setFontSize(comboFontSize);
-    this.comboText.setPosition(width - margin, margin);
+    this.comboText.setPosition(width - PADDING, PADDING);
 
-    this.gridCenter = { x: width / 2, y: height / 2 };
+    const gridCenterX = width / 2;
+    const gridCenterY = UI_TOP + (height - UI_TOP) / 2;
+
+    if (this.gridContainer) {
+      this.gridContainer.setPosition(gridCenterX, gridCenterY);
+    }
+
     this.tiles.forEach((tile) => {
       const pos = axialToPixel(tile.q, tile.r, this.tileSize);
       tile.relativePosition = pos;
 
-      tile.container.setPosition(
-        this.gridCenter.x + pos.x,
-        this.gridCenter.y + pos.y
-      );
+      tile.container.setPosition(pos.x, pos.y);
 
       if (tile.tileSize !== this.tileSize) {
         tile.tileSize = this.tileSize;
@@ -320,6 +325,15 @@ export default class GameScene extends Phaser.Scene {
         tile.container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
       }
     });
+
+    if (this.gridContainer) {
+      const bounds = this.gridContainer.getBounds();
+      const availableW = width - PADDING * 2;
+      const availableH = (height - UI_TOP) - PADDING * 2;
+      const scale = Math.min(availableW / bounds.width, availableH / bounds.height, 1);
+      this.gridContainer.setScale(scale);
+      this.gridContainer.setPosition(gridCenterX, gridCenterY);
+    }
   }
 
   onShutdown() {
