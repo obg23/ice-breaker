@@ -18,20 +18,7 @@ export default class GameScene extends Phaser.Scene {
     this.isTouch = this.sys.game.device.input.touch;
 
     // 게임 설정 (화면 크기 기반)
-    const { width } = this.scale.gameSize;
-    if (width <= 360) {
-      this.tileSize = 25;
-      this.gridRadius = 3;
-    } else if (width <= 480) {
-      this.tileSize = 30;
-      this.gridRadius = 3;
-    } else if (width <= 720) {
-      this.tileSize = 35;
-      this.gridRadius = 4;
-    } else {
-      this.tileSize = 40;
-      this.gridRadius = 4;
-    }
+    this.updateLayoutConfig(this.scale.gameSize);
   }
 
   create() {
@@ -47,7 +34,7 @@ export default class GameScene extends Phaser.Scene {
     this.createHexGrid();
 
     // 초기 배치 및 리사이즈 핸들링
-    this.onResize(this.scale.gameSize);
+    this.onResize(this.scale.gameSize, true);
     this.scale.on('resize', this.onResize, this);
     this.events.on('shutdown', this.onShutdown, this);
 
@@ -111,9 +98,8 @@ export default class GameScene extends Phaser.Scene {
     container.add(hexagon);
 
     // HP 텍스트 (모바일 대응 폰트 크기)
-    const hpFontSize = this.isTouch ? (this.tileSize <= 25 ? 14 : 16) : 20;
     const hpText = this.add.text(0, 0, maxHp, {
-      fontSize: `${hpFontSize}px`,
+      fontSize: `${this.getHpFontSize()}px`,
       fill: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -129,12 +115,12 @@ export default class GameScene extends Phaser.Scene {
       hexagon,
       hpText,
       isBroken: false,
-      relativePosition: { x: pos.x, y: pos.y }
+      relativePosition: { x: pos.x, y: pos.y },
+      tileSize: this.tileSize
     };
 
     // 터치/클릭 이벤트 (모바일에서 더 큰 터치 영역)
-    const touchAreaSize = this.isTouch ? this.tileSize * 2.5 : this.tileSize * 2;
-    container.setSize(touchAreaSize, touchAreaSize);
+    container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
     container.setInteractive();
     container.on('pointerdown', () => this.onTileClick(tileData));
 
@@ -283,11 +269,14 @@ export default class GameScene extends Phaser.Scene {
     return 1.0;
   }
 
-  onResize(gameSize) {
+  onResize(gameSize, maybeForceRedraw) {
+    const forceRedraw = typeof maybeForceRedraw === 'boolean' ? maybeForceRedraw : false;
     const { width, height } = gameSize;
     const padding = this.isTouch ? 10 : 20;
     const baseFontSize = width <= 360 ? 16 : this.isTouch ? 18 : 24;
     const comboFontSize = width <= 360 ? 20 : this.isTouch ? 22 : 28;
+
+    this.updateLayoutConfig(gameSize);
 
     if (this.background) {
       this.background.setSize(width, height);
@@ -304,10 +293,22 @@ export default class GameScene extends Phaser.Scene {
 
     this.gridCenter = { x: width / 2, y: height / 2 };
     this.tiles.forEach((tile) => {
+      const pos = axialToPixel(tile.q, tile.r, this.tileSize);
+      tile.relativePosition = pos;
+
       tile.container.setPosition(
-        this.gridCenter.x + tile.relativePosition.x,
-        this.gridCenter.y + tile.relativePosition.y
+        this.gridCenter.x + pos.x,
+        this.gridCenter.y + pos.y
       );
+
+      if (forceRedraw || tile.tileSize !== this.tileSize) {
+        tile.tileSize = this.tileSize;
+        const newColor = this.getColorByHP(tile.hp);
+        tile.hexagon.clear();
+        this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
+        tile.hpText.setFontSize(this.getHpFontSize());
+        tile.container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
+      }
     });
   }
 
@@ -337,5 +338,41 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(500, () => {
       this.scene.start('ResultScene', { score: this.score });
     });
+  }
+
+  updateLayoutConfig(gameSize) {
+    const { width } = gameSize;
+    let tileSize;
+    let gridRadius;
+
+    if (width <= 360) {
+      tileSize = 24;
+      gridRadius = 3;
+    } else if (width <= 480) {
+      tileSize = 28;
+      gridRadius = 3;
+    } else if (width <= 720) {
+      tileSize = 34;
+      gridRadius = 4;
+    } else {
+      tileSize = 40;
+      gridRadius = 4;
+    }
+
+    this.tileSize = tileSize;
+    if (!this.gridRadius) {
+      this.gridRadius = gridRadius;
+    }
+  }
+
+  getHpFontSize() {
+    if (this.tileSize <= 24) return 14;
+    if (this.tileSize <= 28) return this.isTouch ? 16 : 18;
+    if (this.tileSize <= 34) return this.isTouch ? 18 : 20;
+    return this.isTouch ? 20 : 22;
+  }
+
+  getTouchAreaSize() {
+    return this.isTouch ? this.tileSize * 2.5 : this.tileSize * 2;
   }
 }
