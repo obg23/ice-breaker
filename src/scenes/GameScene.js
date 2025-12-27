@@ -21,6 +21,7 @@ export default class GameScene extends Phaser.Scene {
     this.tiles = new Map(); // 타일 저장 (key: "q,r")
     this.isGameOver = false;
     this.winLoseCheckTimer = null;
+    this.isInputBlocked = false;
 
     this.isTouch = this.sys.game.device.input.touch;
 
@@ -171,39 +172,90 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  getTileValue(tile) {
-    return tile.value ?? tile.hp;
-  }
+  async onTileClick(tile) {
+    if (this.isGameOver || tile.isBroken || this.isInputBlocked) return;
 
-  onTileClick(tile) {
-    if (this.isGameOver || tile.isBroken) return;
-
-    this.consumeTurn();
-
-    // HP 감소
-    tile.hp -= 1;
-
-    // 흔들림 효과
-    this.tweens.add({
-      targets: tile.container,
-      scaleX: 1.1,
-      scaleY: 1.1,
-      duration: 100,
-      yoyo: true
-    });
-
-    if (tile.hp <= 0) {
-      // 타일 파괴
-      this.breakTile(tile, false);
-    } else {
-      // HP 업데이트
-      tile.hpText.setText(tile.hp);
-      const newColor = this.getColorByHP(tile.hp);
-      tile.hexagon.clear();
-      this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
+    const rotationTargets = this.getRotationTargets(tile);
+    if (!rotationTargets) {
+      return;
     }
 
-    this.scheduleWinLoseCheck();
+    this.consumeTurn();
+    this.isInputBlocked = true;
+
+    try {
+      await this.playRotationAnimation(rotationTargets);
+      const clusters = this.findMatchingClusters();
+
+      if (clusters.length > 0) {
+        this.destroyMatchedTiles(clusters);
+        this.updateBoardStateAfterMatches();
+      }
+
+      this.checkWinLose();
+    } finally {
+      this.isInputBlocked = false;
+    }
+  }
+
+  getRotationTargets(centerTile) {
+    if (!centerTile || centerTile.isBroken) return null;
+
+    const neighbors = getNeighbors(centerTile.q, centerTile.r)
+      .map(({ q, r }) => this.tiles.get(`${q},${r}`))
+      .filter(tile => tile && !tile.isBroken);
+
+    if (neighbors.length < 2) {
+      return null;
+    }
+
+    return [centerTile, neighbors[0], neighbors[1]];
+  }
+
+  playRotationAnimation(rotationTargets) {
+    const nextPositions = rotationTargets.map((_, index) => {
+      const sourceIndex = (index + 1) % rotationTargets.length;
+      const targetTile = rotationTargets[sourceIndex];
+      return {
+        position: targetTile.relativePosition,
+        qr: { q: targetTile.q, r: targetTile.r }
+      };
+    });
+
+    const tweens = rotationTargets.map((tile, index) => new Promise(resolve => {
+      this.tweens.add({
+        targets: tile.container,
+        x: nextPositions[index].position.x,
+        y: nextPositions[index].position.y,
+        duration: 250,
+        ease: 'Sine.easeInOut',
+        onComplete: resolve
+      });
+    }));
+
+    return Promise.all(tweens).then(() => {
+      this.applyRotationState(rotationTargets, nextPositions);
+    });
+  }
+
+  applyRotationState(rotationTargets, nextPositions) {
+    const updates = rotationTargets.map((tile, index) => ({
+      tile,
+      oldKey: `${tile.q},${tile.r}`,
+      next: nextPositions[index]
+    }));
+
+    updates.forEach(({ oldKey }) => {
+      this.tiles.delete(oldKey);
+    });
+
+    updates.forEach(({ tile, next }) => {
+      tile.q = next.qr.q;
+      tile.r = next.qr.r;
+      tile.relativePosition = next.position;
+      tile.container.setPosition(next.position.x, next.position.y);
+      this.tiles.set(`${tile.q},${tile.r}`, tile);
+    });
   }
 
   breakTile(tile, isChain = false) {
@@ -388,6 +440,64 @@ export default class GameScene extends Phaser.Scene {
     if (this.combo >= 7) return 2.0;
     if (this.combo >= 4) return 1.5;
     return 1.0;
+  }
+
+  findMatchingClusters() {
+    const visited = new Set();
+    const clusters = [];
+
+    this.tiles.forEach((tile, key) => {
+      if (tile.isBroken || visited.has(key)) return;
+
+      const cluster = [];
+      const stack = [tile];
+
+      while (stack.length > 0) {
+        const current = stack.pop();
+        const currentKey = `${current.q},${current.r}`;
+
+        if (visited.has(currentKey) || current.isBroken) continue;
+
+        visited.add(currentKey);
+        cluster.push(current);
+
+        const neighbors = getNeighbors(current.q, current.r)
+          .map(({ q, r }) => this.tiles.get(`${q},${r}`))
+          .filter(neighbor => neighbor && !neighbor.isBroken && neighbor.hp === current.hp);
+
+        neighbors.forEach(neighbor => {
+          const neighborKey = `${neighbor.q},${neighbor.r}`;
+          if (!visited.has(neighborKey)) {
+            stack.push(neighbor);
+          }
+        });
+      }
+
+      if (cluster.length >= 3) {
+        clusters.push(cluster);
+      }
+    });
+
+    return clusters;
+  }
+
+  destroyMatchedTiles(clusters) {
+    clusters.forEach((cluster, clusterIndex) => {
+      cluster.forEach(tile => {
+        this.breakTile(tile, clusterIndex > 0);
+      });
+    });
+  }
+
+  updateBoardStateAfterMatches() {
+    const brokenKeys = [];
+    this.tiles.forEach((tile, key) => {
+      if (tile.isBroken) {
+        brokenKeys.push(key);
+      }
+    });
+
+    brokenKeys.forEach(key => this.tiles.delete(key));
   }
 
   onResize(gameSize) {
