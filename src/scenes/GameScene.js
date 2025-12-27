@@ -462,4 +462,102 @@ export default class GameScene extends Phaser.Scene {
   getTouchAreaSize() {
     return this.isTouch ? this.tileSize * 2.5 : this.tileSize * 2;
   }
+
+  getRotatableNeighbors(centerTile) {
+    const offsets = [
+      { q: 0, r: -1 },  // N
+      { q: 1, r: -1 },  // NE
+      { q: 1, r: 0 },   // SE
+      { q: 0, r: 1 },   // S
+      { q: -1, r: 1 },  // SW
+      { q: -1, r: 0 }   // NW
+    ];
+
+    const neighbors = [];
+
+    offsets.forEach(({ q, r }) => {
+      const neighborTile = this.tiles.get(`${centerTile.q + q},${centerTile.r + r}`);
+
+      if (neighborTile && !neighborTile.isBroken) {
+        neighbors.push(neighborTile);
+      }
+    });
+
+    return neighbors;
+  }
+
+  rotateNeighborsClockwise(neighbors) {
+    if (!neighbors || neighbors.length < 2) return;
+
+    const lastNeighbor = neighbors[neighbors.length - 1];
+    const lastHp = lastNeighbor.hp;
+    const lastValue = lastNeighbor.value;
+
+    for (let i = neighbors.length - 1; i > 0; i -= 1) {
+      const target = neighbors[i];
+      const source = neighbors[i - 1];
+
+      target.hp = source.hp;
+
+      if (source.value !== undefined || target.value !== undefined || lastValue !== undefined) {
+        target.value = source.value;
+      }
+
+      if (target.hpText) {
+        target.hpText.setText(target.hp);
+      }
+
+      if (target.hexagon) {
+        const newColor = this.getColorByHP(target.hp);
+        target.hexagon.clear();
+        this.drawHexagon(target.hexagon, 0, 0, target.tileSize, newColor);
+      }
+    }
+
+    const firstNeighbor = neighbors[0];
+    firstNeighbor.hp = lastHp;
+
+    if (lastValue !== undefined || firstNeighbor.value !== undefined) {
+      firstNeighbor.value = lastValue;
+    }
+
+    if (firstNeighbor.hpText) {
+      firstNeighbor.hpText.setText(firstNeighbor.hp);
+    }
+
+    if (firstNeighbor.hexagon) {
+      const newColor = this.getColorByHP(firstNeighbor.hp);
+      firstNeighbor.hexagon.clear();
+      this.drawHexagon(firstNeighbor.hexagon, 0, 0, firstNeighbor.tileSize, newColor);
+    }
+  }
+
+  playRotationAnimation(neighbors) {
+    if (!neighbors || neighbors.length < 2) return;
+
+    const duration = Phaser.Math.Between(200, 300);
+    let completedTweens = 0;
+
+    this.input.enabled = false;
+
+    neighbors.forEach((tile, index) => {
+      const nextTile = neighbors[(index + 1) % neighbors.length];
+
+      this.tweens.add({
+        targets: tile.container,
+        x: nextTile.relativePosition.x,
+        y: nextTile.relativePosition.y,
+        duration,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          tile.container.setPosition(tile.relativePosition.x, tile.relativePosition.y);
+          completedTweens += 1;
+
+          if (completedTweens === neighbors.length) {
+            this.input.enabled = true;
+          }
+        }
+      });
+    });
+  }
 }
