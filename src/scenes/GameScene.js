@@ -171,6 +171,10 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  getTileValue(tile) {
+    return tile.value ?? tile.hp;
+  }
+
   onTileClick(tile) {
     if (this.isGameOver || tile.isBroken) return;
 
@@ -250,6 +254,108 @@ export default class GameScene extends Phaser.Scene {
           this.drawHexagon(neighborTile.hexagon, 0, 0, this.tileSize, newColor);
         }
       }
+    });
+
+    this.scheduleWinLoseCheck();
+  }
+
+  async playRotationAnimation(angleDelta = 60) {
+    if (!this.gridContainer) return [];
+
+    return new Promise((resolve) => {
+      this.tweens.add({
+        targets: this.gridContainer,
+        angle: this.gridContainer.angle + angleDelta,
+        duration: 300,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          const clusters = this.findMatchingClusters();
+          clusters.forEach((cluster) => this.destroyMatchedTiles(cluster));
+          resolve(clusters);
+        }
+      });
+    });
+  }
+
+  findMatchingClusters() {
+    const visited = new Set();
+    const clusters = [];
+
+    this.tiles.forEach((tile) => {
+      if (tile.isBroken) return;
+
+      const startKey = `${tile.q},${tile.r}`;
+      if (visited.has(startKey)) return;
+
+      const matchValue = this.getTileValue(tile);
+      const stack = [tile];
+      const cluster = [];
+
+      while (stack.length > 0) {
+        const current = stack.pop();
+        const currentKey = `${current.q},${current.r}`;
+
+        if (visited.has(currentKey)) continue;
+        if (current.isBroken) continue;
+
+        const currentValue = this.getTileValue(current);
+        if (currentValue !== matchValue) continue;
+
+        visited.add(currentKey);
+        cluster.push(current);
+
+        getNeighbors(current.q, current.r).forEach(({ q, r }) => {
+          const neighborKey = `${q},${r}`;
+          if (visited.has(neighborKey)) return;
+
+          const neighbor = this.tiles.get(neighborKey);
+          if (!neighbor || neighbor.isBroken) return;
+
+          const neighborValue = this.getTileValue(neighbor);
+          if (neighborValue === matchValue) {
+            stack.push(neighbor);
+          }
+        });
+      }
+
+      if (cluster.length >= 2) {
+        clusters.push(cluster);
+      }
+    });
+
+    return clusters;
+  }
+
+  destroyMatchedTiles(tiles) {
+    if (!tiles || tiles.length === 0) return;
+
+    tiles.forEach((tile) => {
+      if (tile.isBroken) return;
+
+      tile.isBroken = true;
+      tile.hp = 0;
+
+      tile.container.setScale(1);
+      tile.container.setAlpha(1);
+
+      this.tweens.timeline({
+        targets: tile.container,
+        tweens: [
+          { scale: 1.2, duration: 120, ease: 'Sine.easeOut' },
+          { scale: 0, alpha: 0, duration: 180, ease: 'Sine.easeIn' }
+        ],
+        onComplete: () => {
+          tile.container.destroy();
+        }
+      });
+
+      const baseScore = 100;
+      const comboMultiplier = this.getComboMultiplier();
+      const earnedScore = baseScore * comboMultiplier;
+
+      this.score += earnedScore;
+      this.scoreText.setText(`점수: ${this.score}`);
+      this.increaseCombo();
     });
 
     this.scheduleWinLoseCheck();
