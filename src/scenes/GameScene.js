@@ -1,15 +1,17 @@
-import Phaser from 'phaser';
-import { axialToPixel, getNeighbors } from '../utils/hexUtils.js';
+import Phaser from "phaser";
+import { axialToPixel, getNeighbors } from "../utils/hexUtils.js";
 
 const TURN_FACTOR = 0.55;
 const UI_TOP = 60;
 const PADDING = 16;
 
 export default class GameScene extends Phaser.Scene {
+  // 씬 키 등록
   constructor() {
-    super({ key: 'GameScene' });
+    super({ key: "GameScene" });
   }
 
+  // 게임 상태 및 UI 관련 변수 초기화
   init() {
     // 게임 상태 초기화
     this.score = 0;
@@ -29,11 +31,14 @@ export default class GameScene extends Phaser.Scene {
     this.updateLayoutConfig(this.scale.gameSize);
   }
 
+  // 배경, UI, 그리드 생성 및 초기 턴 세팅
   create() {
     const { width, height } = this.scale.gameSize;
 
     // 배경
-    this.background = this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
+    this.background = this.add
+      .rectangle(0, 0, width, height, 0x1a1a2e)
+      .setOrigin(0);
 
     // UI 생성
     this.createUI();
@@ -43,40 +48,49 @@ export default class GameScene extends Phaser.Scene {
 
     // 초기 배치 및 리사이즈 핸들링
     this.onResize(this.scale.gameSize);
-    this.scale.on('resize', this.onResize, this);
-    this.events.on('shutdown', this.onShutdown, this);
+    this.scale.on("resize", this.onResize, this);
+    this.events.on("shutdown", this.onShutdown, this);
 
     // 턴 초기화
     this.initializeTurns();
   }
 
+  // 점수/턴/콤보 텍스트 UI 생성
   createUI() {
     // 점수 표시
-    this.scoreText = this.add.text(0, 0, '점수: 0', {
-      fontSize: '24px',
-      fill: '#ffffff',
-      fontStyle: 'bold'
+    this.scoreText = this.add.text(0, 0, "점수: 0", {
+      fontSize: "24px",
+      fill: "#ffffff",
+      fontStyle: "bold",
     });
 
     // 턴 표시
-    this.turnsText = this.add.text(0, 0, 'TURNS: 0 / 0', {
-      fontSize: '24px',
-      fill: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
+    this.turnsText = this.add
+      .text(0, 0, "TURNS: 0 / 0", {
+        fontSize: "24px",
+        fill: "#ffffff",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5, 0);
 
     // 콤보 표시
-    this.comboText = this.add.text(0, 0, '', {
-      fontSize: '28px',
-      fill: '#ffff00',
-      fontStyle: 'bold'
-    }).setOrigin(1, 0);
+    this.comboText = this.add
+      .text(0, 0, "", {
+        fontSize: "28px",
+        fill: "#ffff00",
+        fontStyle: "bold",
+      })
+      .setOrigin(1, 0);
   }
 
+  // 화면 크기에 맞춰 육각형 보드 생성
   createHexGrid() {
     const { width, height } = this.scale.gameSize;
     this.gridCenter = { x: width / 2, y: height / 2 };
-    this.gridContainer = this.add.container(this.gridCenter.x, this.gridCenter.y);
+    this.gridContainer = this.add.container(
+      this.gridCenter.x,
+      this.gridCenter.y
+    );
 
     // 육각형 그리드 생성 (axial coordinates)
     for (let q = -this.gridRadius; q <= this.gridRadius; q++) {
@@ -89,6 +103,8 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // 단일 육각 타일 생성 및 클릭 이벤트 연결
+  // 단일 육각 타일 생성 및 클릭 이벤트 연결
   createIceTile(q, r) {
     const pos = axialToPixel(q, r, this.tileSize);
     const { x, y } = pos;
@@ -106,11 +122,13 @@ export default class GameScene extends Phaser.Scene {
     container.add(hexagon);
 
     // HP 텍스트 (모바일 대응 폰트 크기)
-    const hpText = this.add.text(0, 0, maxHp, {
-      fontSize: `${this.getHpFontSize()}px`,
-      fill: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
+    const hpText = this.add
+      .text(0, 0, maxHp, {
+        fontSize: `${this.getHpFontSize()}px`,
+        fill: "#ffffff",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
     container.add(hpText);
     this.gridContainer.add(container);
 
@@ -125,18 +143,19 @@ export default class GameScene extends Phaser.Scene {
       hpText,
       isBroken: false,
       relativePosition: { x: pos.x, y: pos.y },
-      tileSize: this.tileSize
+      tileSize: this.tileSize,
     };
 
     // 터치/클릭 이벤트 (모바일에서 더 큰 터치 영역)
     container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
     container.setInteractive();
-    container.on('pointerdown', () => this.onTileClick(tileData));
+    container.on("pointerdown", () => this.onTileClick(tileData));
 
     // Map에 저장
     this.tiles.set(`${q},${r}`, tileData);
   }
 
+  // 육각형 도형을 그리는 유틸
   drawHexagon(graphics, x, y, size, color) {
     graphics.fillStyle(color, 1);
     graphics.lineStyle(2, 0xffffff, 1);
@@ -144,10 +163,7 @@ export default class GameScene extends Phaser.Scene {
     const points = [];
     for (let i = 0; i < 6; i++) {
       const angle = (Math.PI / 3) * i;
-      points.push(
-        x + size * Math.cos(angle),
-        y + size * Math.sin(angle)
-      );
+      points.push(x + size * Math.cos(angle), y + size * Math.sin(angle));
     }
 
     graphics.beginPath();
@@ -160,18 +176,27 @@ export default class GameScene extends Phaser.Scene {
     graphics.strokePath();
   }
 
+  // HP 값에 따른 색상 반환
   getColorByHP(hp) {
     switch (hp) {
-      case 6: return 0x082f6b; // 최상위 진한 파랑 (최대 HP)
-      case 5: return 0x0d47a1; // 진한 파랑 (최대 HP)
-      case 4: return 0x1976d2; // 파랑
-      case 3: return 0x4a90e2; // 중간 파랑
-      case 2: return 0x7fb3d5; // 연한 파랑 (금 1단계)
-      case 1: return 0xb0d4e8; // 아주 연한 파랑 (금 2단계)
-      default: return 0xcccccc;
+      case 6:
+        return 0x082f6b; // 최상위 진한 파랑 (최대 HP)
+      case 5:
+        return 0x0d47a1; // 진한 파랑 (최대 HP)
+      case 4:
+        return 0x1976d2; // 파랑
+      case 3:
+        return 0x4a90e2; // 중간 파랑
+      case 2:
+        return 0x7fb3d5; // 연한 파랑 (금 1단계)
+      case 1:
+        return 0xb0d4e8; // 아주 연한 파랑 (금 2단계)
+      default:
+        return 0xcccccc;
     }
   }
 
+  // 타일 클릭 시 회전 후 매칭 검사
   async onTileClick(tile) {
     if (this.isGameOver || tile.isBroken || this.isInputBlocked) return;
 
@@ -185,7 +210,7 @@ export default class GameScene extends Phaser.Scene {
 
     try {
       await this.playRotationAnimation(rotationTargets);
-      const clusters = this.findMatchingClusters();
+      const clusters = this.findMatchingClusters(rotationTargets);
 
       if (clusters.length > 0) {
         this.destroyMatchedTiles(clusters);
@@ -198,12 +223,13 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // 클릭된 타일과 인접 두 개를 회전 대상으로 선택
   getRotationTargets(centerTile) {
     if (!centerTile || centerTile.isBroken) return null;
 
     const neighbors = getNeighbors(centerTile.q, centerTile.r)
       .map(({ q, r }) => this.tiles.get(`${q},${r}`))
-      .filter(tile => tile && !tile.isBroken);
+      .filter((tile) => tile && !tile.isBroken);
 
     if (neighbors.length < 2) {
       return null;
@@ -212,37 +238,42 @@ export default class GameScene extends Phaser.Scene {
     return [centerTile, neighbors[0], neighbors[1]];
   }
 
+  // 회전 애니메이션 실행 후 좌표 스왑 적용
   playRotationAnimation(rotationTargets) {
     const nextPositions = rotationTargets.map((_, index) => {
       const sourceIndex = (index + 1) % rotationTargets.length;
       const targetTile = rotationTargets[sourceIndex];
       return {
         position: targetTile.relativePosition,
-        qr: { q: targetTile.q, r: targetTile.r }
+        qr: { q: targetTile.q, r: targetTile.r },
       };
     });
 
-    const tweens = rotationTargets.map((tile, index) => new Promise(resolve => {
-      this.tweens.add({
-        targets: tile.container,
-        x: nextPositions[index].position.x,
-        y: nextPositions[index].position.y,
-        duration: 250,
-        ease: 'Sine.easeInOut',
-        onComplete: resolve
-      });
-    }));
+    const tweens = rotationTargets.map(
+      (tile, index) =>
+        new Promise((resolve) => {
+          this.tweens.add({
+            targets: tile.container,
+            x: nextPositions[index].position.x,
+            y: nextPositions[index].position.y,
+            duration: 250,
+            ease: "Sine.easeInOut",
+            onComplete: resolve,
+          });
+        })
+    );
 
     return Promise.all(tweens).then(() => {
       this.applyRotationState(rotationTargets, nextPositions);
     });
   }
 
+  // 회전 결과를 타일 좌표/맵에 반영
   applyRotationState(rotationTargets, nextPositions) {
     const updates = rotationTargets.map((tile, index) => ({
       tile,
       oldKey: `${tile.q},${tile.r}`,
-      next: nextPositions[index]
+      next: nextPositions[index],
     }));
 
     updates.forEach(({ oldKey }) => {
@@ -258,6 +289,7 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  // 타일 파괴 및 점수/콤보 처리
   breakTile(tile, isChain = false) {
     if (tile.isBroken) return;
 
@@ -271,7 +303,7 @@ export default class GameScene extends Phaser.Scene {
       duration: 200,
       onComplete: () => {
         tile.container.destroy();
-      }
+      },
     });
 
     // 점수 계산
@@ -286,62 +318,35 @@ export default class GameScene extends Phaser.Scene {
     // 콤보 증가
     this.increaseCombo();
 
-    // 인접 타일에 데미지
-    const neighbors = getNeighbors(tile.q, tile.r);
-    neighbors.forEach(({ q, r }) => {
-      const neighborTile = this.tiles.get(`${q},${r}`);
-      if (neighborTile && !neighborTile.isBroken) {
-        neighborTile.hp -= 1;
-
-        if (neighborTile.hp <= 0) {
-          // 연쇄 파괴
-          this.time.delayedCall(100, () => {
-            this.breakTile(neighborTile, true);
-          });
-        } else {
-          // HP 업데이트
-          neighborTile.hpText.setText(neighborTile.hp);
-          const newColor = this.getColorByHP(neighborTile.hp);
-          neighborTile.hexagon.clear();
-          this.drawHexagon(neighborTile.hexagon, 0, 0, this.tileSize, newColor);
-        }
-      }
-    });
-
     this.scheduleWinLoseCheck();
   }
 
-  async playRotationAnimation(angleDelta = 60) {
-    if (!this.gridContainer) return [];
-
-    return new Promise((resolve) => {
-      this.tweens.add({
-        targets: this.gridContainer,
-        angle: this.gridContainer.angle + angleDelta,
-        duration: 300,
-        ease: 'Sine.easeInOut',
-        onComplete: () => {
-          const clusters = this.findMatchingClusters();
-          clusters.forEach((cluster) => this.destroyMatchedTiles(cluster));
-          resolve(clusters);
-        }
-      });
-    });
-  }
-
-  findMatchingClusters() {
+  // 회전 타일 주변에서 동일 HP 3개 이상 클러스터 탐색
+  findMatchingClusters(pivotTiles = []) {
     const visited = new Set();
     const clusters = [];
 
-    this.tiles.forEach((tile) => {
-      if (tile.isBroken) return;
+    // 회전한 타일과 그 인접 타일만 후보로 한정
+    const candidates = new Map();
+    const addCandidate = (tile) => {
+      if (tile && !tile.isBroken) {
+        candidates.set(`${tile.q},${tile.r}`, tile);
+      }
+    };
 
-      const startKey = `${tile.q},${tile.r}`;
-      if (visited.has(startKey)) return;
+    pivotTiles.forEach((tile) => {
+      addCandidate(tile);
+      getNeighbors(tile.q, tile.r).forEach(({ q, r }) => {
+        addCandidate(this.tiles.get(`${q},${r}`));
+      });
+    });
 
-      const matchValue = this.getTileValue(tile);
-      const stack = [tile];
+    candidates.forEach((tile, key) => {
+      if (visited.has(key)) return;
+
+      const targetHp = tile.hp;
       const cluster = [];
+      const stack = [tile];
 
       while (stack.length > 0) {
         const current = stack.pop();
@@ -349,123 +354,15 @@ export default class GameScene extends Phaser.Scene {
 
         if (visited.has(currentKey)) continue;
         if (current.isBroken) continue;
-
-        const currentValue = this.getTileValue(current);
-        if (currentValue !== matchValue) continue;
+        if (current.hp !== targetHp) continue;
 
         visited.add(currentKey);
         cluster.push(current);
 
         getNeighbors(current.q, current.r).forEach(({ q, r }) => {
-          const neighborKey = `${q},${r}`;
-          if (visited.has(neighborKey)) return;
+          const neighbor = candidates.get(`${q},${r}`);
+          if (!neighbor) return;
 
-          const neighbor = this.tiles.get(neighborKey);
-          if (!neighbor || neighbor.isBroken) return;
-
-          const neighborValue = this.getTileValue(neighbor);
-          if (neighborValue === matchValue) {
-            stack.push(neighbor);
-          }
-        });
-      }
-
-      if (cluster.length >= 2) {
-        clusters.push(cluster);
-      }
-    });
-
-    return clusters;
-  }
-
-  destroyMatchedTiles(tiles) {
-    if (!tiles || tiles.length === 0) return;
-
-    tiles.forEach((tile) => {
-      if (tile.isBroken) return;
-
-      tile.isBroken = true;
-      tile.hp = 0;
-
-      tile.container.setScale(1);
-      tile.container.setAlpha(1);
-
-      this.tweens.timeline({
-        targets: tile.container,
-        tweens: [
-          { scale: 1.2, duration: 120, ease: 'Sine.easeOut' },
-          { scale: 0, alpha: 0, duration: 180, ease: 'Sine.easeIn' }
-        ],
-        onComplete: () => {
-          tile.container.destroy();
-        }
-      });
-
-      const baseScore = 100;
-      const comboMultiplier = this.getComboMultiplier();
-      const earnedScore = baseScore * comboMultiplier;
-
-      this.score += earnedScore;
-      this.scoreText.setText(`점수: ${this.score}`);
-      this.increaseCombo();
-    });
-
-    this.scheduleWinLoseCheck();
-  }
-
-  increaseCombo() {
-    this.combo += 1;
-    this.updateComboText();
-
-    // 콤보 타이머 리셋
-    if (this.comboTimer) {
-      this.comboTimer.remove();
-    }
-
-    this.comboTimer = this.time.delayedCall(1500, () => {
-      this.combo = 0;
-      this.updateComboText();
-    });
-  }
-
-  updateComboText() {
-    if (this.combo > 1) {
-      this.comboText.setText(`콤보 x${this.combo}`);
-    } else {
-      this.comboText.setText('');
-    }
-  }
-
-  getComboMultiplier() {
-    if (this.combo >= 7) return 2.0;
-    if (this.combo >= 4) return 1.5;
-    return 1.0;
-  }
-
-  findMatchingClusters() {
-    const visited = new Set();
-    const clusters = [];
-
-    this.tiles.forEach((tile, key) => {
-      if (tile.isBroken || visited.has(key)) return;
-
-      const cluster = [];
-      const stack = [tile];
-
-      while (stack.length > 0) {
-        const current = stack.pop();
-        const currentKey = `${current.q},${current.r}`;
-
-        if (visited.has(currentKey) || current.isBroken) continue;
-
-        visited.add(currentKey);
-        cluster.push(current);
-
-        const neighbors = getNeighbors(current.q, current.r)
-          .map(({ q, r }) => this.tiles.get(`${q},${r}`))
-          .filter(neighbor => neighbor && !neighbor.isBroken && neighbor.hp === current.hp);
-
-        neighbors.forEach(neighbor => {
           const neighborKey = `${neighbor.q},${neighbor.r}`;
           if (!visited.has(neighborKey)) {
             stack.push(neighbor);
@@ -481,14 +378,50 @@ export default class GameScene extends Phaser.Scene {
     return clusters;
   }
 
+  // 찾은 클러스터를 순서대로 파괴
   destroyMatchedTiles(clusters) {
+    if (!clusters || clusters.length === 0) return;
+
     clusters.forEach((cluster, clusterIndex) => {
-      cluster.forEach(tile => {
+      cluster.forEach((tile) => {
         this.breakTile(tile, clusterIndex > 0);
       });
     });
   }
 
+  // 콤보 카운트 증가 및 타이머 리셋
+  increaseCombo() {
+    this.combo += 1;
+    this.updateComboText();
+
+    // 콤보 타이머 리셋
+    if (this.comboTimer) {
+      this.comboTimer.remove();
+    }
+
+    this.comboTimer = this.time.delayedCall(1500, () => {
+      this.combo = 0;
+      this.updateComboText();
+    });
+  }
+
+  // 콤보 텍스트 갱신
+  updateComboText() {
+    if (this.combo > 1) {
+      this.comboText.setText(`콤보 x${this.combo}`);
+    } else {
+      this.comboText.setText("");
+    }
+  }
+
+  // 콤보 배수 계산
+  getComboMultiplier() {
+    if (this.combo >= 7) return 2.0;
+    if (this.combo >= 4) return 1.5;
+    return 1.0;
+  }
+
+  // 파괴된 타일을 맵에서 제거
   updateBoardStateAfterMatches() {
     const brokenKeys = [];
     this.tiles.forEach((tile, key) => {
@@ -497,9 +430,10 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    brokenKeys.forEach(key => this.tiles.delete(key));
+    brokenKeys.forEach((key) => this.tiles.delete(key));
   }
 
+  // 화면 크기 변경 시 UI/그리드 재배치
   onResize(gameSize) {
     const { width, height } = gameSize;
     const baseFontSize = width <= 360 ? 16 : this.isTouch ? 18 : 24;
@@ -539,24 +473,33 @@ export default class GameScene extends Phaser.Scene {
         tile.hexagon.clear();
         this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
         tile.hpText.setFontSize(this.getHpFontSize());
-        tile.container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
+        tile.container.setSize(
+          this.getTouchAreaSize(),
+          this.getTouchAreaSize()
+        );
       }
     });
 
     if (this.gridContainer) {
       const bounds = this.gridContainer.getBounds();
       const availableW = width - PADDING * 2;
-      const availableH = (height - UI_TOP) - PADDING * 2;
-      const scale = Math.min(availableW / bounds.width, availableH / bounds.height, 1);
+      const availableH = height - UI_TOP - PADDING * 2;
+      const scale = Math.min(
+        availableW / bounds.width,
+        availableH / bounds.height,
+        1
+      );
       this.gridContainer.setScale(scale);
       this.gridContainer.setPosition(gridCenterX, gridCenterY);
     }
   }
 
+  // 씬 종료 시 리스너 정리
   onShutdown() {
-    this.scale.off('resize', this.onResize, this);
+    this.scale.off("resize", this.onResize, this);
   }
 
+  // 총 HP 기반으로 턴 수 초기화
   initializeTurns() {
     this.totalHP = this.calculateTotalHP();
     this.turnsTotal = this.calculateTurnsTotal(this.totalHP);
@@ -564,6 +507,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateTurnsText();
   }
 
+  // 현재 보드의 총 HP 합산
   calculateTotalHP() {
     let total = 0;
     this.tiles.forEach((tile) => {
@@ -572,10 +516,12 @@ export default class GameScene extends Phaser.Scene {
     return total;
   }
 
+  // 총 HP 대비 턴 수 계산
   calculateTurnsTotal(totalHP) {
     return Math.ceil(totalHP * TURN_FACTOR);
   }
 
+  // 깨지지 않은 타일 개수 반환
   getRemainingTilesCount() {
     let remaining = 0;
     this.tiles.forEach((tile) => {
@@ -586,22 +532,28 @@ export default class GameScene extends Phaser.Scene {
     return remaining;
   }
 
+  // 모든 타일 파괴 여부 확인
   isAllTilesBroken() {
     return this.getRemainingTilesCount() === 0;
   }
 
+  // 턴 1 소모 후 UI 갱신
   consumeTurn() {
     if (this.isGameOver) return;
     this.turnsRemaining = Math.max(0, this.turnsRemaining - 1);
     this.updateTurnsText();
   }
 
+  // 턴 텍스트 업데이트
   updateTurnsText() {
     if (this.turnsText) {
-      this.turnsText.setText(`TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`);
+      this.turnsText.setText(
+        `TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`
+      );
     }
   }
 
+  // 승패 체크 예약
   scheduleWinLoseCheck() {
     if (this.winLoseCheckTimer) {
       this.winLoseCheckTimer.remove(false);
@@ -613,6 +565,7 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  // 남은 타일/턴으로 승패 판정
   checkWinLose() {
     if (this.isGameOver) return;
 
@@ -626,6 +579,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // 결과 데이터를 넘기며 결과 씬 전환
   endGame(isWin) {
     if (this.isGameOver) return;
     this.isGameOver = true;
@@ -634,15 +588,16 @@ export default class GameScene extends Phaser.Scene {
       score: this.score,
       isWin: Boolean(isWin),
       turnsRemaining: this.turnsRemaining,
-      turnsTotal: this.turnsTotal
+      turnsTotal: this.turnsTotal,
     };
 
     // 게임 종료 후 결과 화면으로 이동
     this.time.delayedCall(500, () => {
-      this.scene.start('ResultScene', resultData);
+      this.scene.start("ResultScene", resultData);
     });
   }
 
+  // 화면 크기에 따라 타일 크기/그리드 반경 결정
   updateLayoutConfig(gameSize) {
     const { width } = gameSize;
     let tileSize;
@@ -668,6 +623,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // 타일 크기와 터치 여부에 따른 HP 폰트 크기
   getHpFontSize() {
     if (this.tileSize <= 24) return 14;
     if (this.tileSize <= 28) return this.isTouch ? 16 : 18;
@@ -675,105 +631,8 @@ export default class GameScene extends Phaser.Scene {
     return this.isTouch ? 20 : 22;
   }
 
+  // 터치 디바이스에 맞춘 터치 영역 크기
   getTouchAreaSize() {
     return this.isTouch ? this.tileSize * 2.5 : this.tileSize * 2;
-  }
-
-  getRotatableNeighbors(centerTile) {
-    const offsets = [
-      { q: 0, r: -1 },  // N
-      { q: 1, r: -1 },  // NE
-      { q: 1, r: 0 },   // SE
-      { q: 0, r: 1 },   // S
-      { q: -1, r: 1 },  // SW
-      { q: -1, r: 0 }   // NW
-    ];
-
-    const neighbors = [];
-
-    offsets.forEach(({ q, r }) => {
-      const neighborTile = this.tiles.get(`${centerTile.q + q},${centerTile.r + r}`);
-
-      if (neighborTile && !neighborTile.isBroken) {
-        neighbors.push(neighborTile);
-      }
-    });
-
-    return neighbors;
-  }
-
-  rotateNeighborsClockwise(neighbors) {
-    if (!neighbors || neighbors.length < 2) return;
-
-    const lastNeighbor = neighbors[neighbors.length - 1];
-    const lastHp = lastNeighbor.hp;
-    const lastValue = lastNeighbor.value;
-
-    for (let i = neighbors.length - 1; i > 0; i -= 1) {
-      const target = neighbors[i];
-      const source = neighbors[i - 1];
-
-      target.hp = source.hp;
-
-      if (source.value !== undefined || target.value !== undefined || lastValue !== undefined) {
-        target.value = source.value;
-      }
-
-      if (target.hpText) {
-        target.hpText.setText(target.hp);
-      }
-
-      if (target.hexagon) {
-        const newColor = this.getColorByHP(target.hp);
-        target.hexagon.clear();
-        this.drawHexagon(target.hexagon, 0, 0, target.tileSize, newColor);
-      }
-    }
-
-    const firstNeighbor = neighbors[0];
-    firstNeighbor.hp = lastHp;
-
-    if (lastValue !== undefined || firstNeighbor.value !== undefined) {
-      firstNeighbor.value = lastValue;
-    }
-
-    if (firstNeighbor.hpText) {
-      firstNeighbor.hpText.setText(firstNeighbor.hp);
-    }
-
-    if (firstNeighbor.hexagon) {
-      const newColor = this.getColorByHP(firstNeighbor.hp);
-      firstNeighbor.hexagon.clear();
-      this.drawHexagon(firstNeighbor.hexagon, 0, 0, firstNeighbor.tileSize, newColor);
-    }
-  }
-
-  playRotationAnimation(neighbors) {
-    if (!neighbors || neighbors.length < 2) return;
-
-    const duration = Phaser.Math.Between(200, 300);
-    let completedTweens = 0;
-
-    this.input.enabled = false;
-
-    neighbors.forEach((tile, index) => {
-      const nextTile = neighbors[(index + 1) % neighbors.length];
-
-      this.tweens.add({
-        targets: tile.container,
-        x: nextTile.relativePosition.x,
-        y: nextTile.relativePosition.y,
-        duration,
-        ease: 'Sine.easeInOut',
-        onComplete: () => {
-          tile.container.setPosition(tile.relativePosition.x, tile.relativePosition.y);
-          completedTweens += 1;
-
-          if (completedTweens === neighbors.length) {
-            this.input.enabled = true;
-          }
-        }
-      });
-    });
   }
 }
