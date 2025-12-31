@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { axialToPixel, getNeighbors } from "../utils/hexUtils.js";
+import { getColorByHP } from "../config/uiConfig.js";
 
 const TURN_FACTOR = 0.55;
 const UI_TOP = 60;
@@ -114,7 +115,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 육각형 그래픽 생성
     const hexagon = this.add.graphics();
-    const color = this.getColorByHP(maxHp);
+    const color = getColorByHP(maxHp);
     this.drawHexagon(hexagon, 0, 0, this.tileSize, color);
 
     // 컨테이너로 육각형과 텍스트 묶기
@@ -122,6 +123,7 @@ export default class GameScene extends Phaser.Scene {
     container.add(hexagon);
 
     // HP 텍스트 (모바일 대응 폰트 크기)
+    /**
     const hpText = this.add
       .text(0, 0, maxHp, {
         fontSize: `${this.getHpFontSize()}px`,
@@ -130,6 +132,7 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     container.add(hpText);
+    /**/
     this.gridContainer.add(container);
 
     // 타일 데이터
@@ -140,7 +143,7 @@ export default class GameScene extends Phaser.Scene {
       maxHp,
       container,
       hexagon,
-      hpText,
+      // hpText,
       isBroken: false,
       relativePosition: { x: pos.x, y: pos.y },
       tileSize: this.tileSize,
@@ -176,26 +179,6 @@ export default class GameScene extends Phaser.Scene {
     graphics.strokePath();
   }
 
-  // HP 값에 따른 색상 반환
-  getColorByHP(hp) {
-    switch (hp) {
-      case 6:
-        return 0x082f6b; // 최상위 진한 파랑 (최대 HP)
-      case 5:
-        return 0x0d47a1; // 진한 파랑 (최대 HP)
-      case 4:
-        return 0x1976d2; // 파랑
-      case 3:
-        return 0x4a90e2; // 중간 파랑
-      case 2:
-        return 0x7fb3d5; // 연한 파랑 (금 1단계)
-      case 1:
-        return 0xb0d4e8; // 아주 연한 파랑 (금 2단계)
-      default:
-        return 0xcccccc;
-    }
-  }
-
   // 타일 클릭 시 회전 후 매칭 검사
   async onTileClick(tile) {
     if (this.isGameOver || tile.isBroken || this.isInputBlocked) return;
@@ -214,7 +197,7 @@ export default class GameScene extends Phaser.Scene {
 
       if (clusters.length > 0) {
         this.destroyMatchedTiles(clusters);
-        this.updateBoardStateAfterMatches();
+        await this.updateBoardStateAfterMatches();
       }
 
       this.checkWinLose();
@@ -321,12 +304,12 @@ export default class GameScene extends Phaser.Scene {
     this.scheduleWinLoseCheck();
   }
 
-  // 회전 타일 주변에서 동일 HP 3개 이상 클러스터 탐색
+  // 회전 타일과 인접 타일만으로 동일 HP 3개 이상 클러스터 탐색
   findMatchingClusters(pivotTiles = []) {
     const visited = new Set();
     const clusters = [];
 
-    // 회전한 타일과 그 인접 타일만 후보로 한정
+    // 검사 후보: 회전된 3개 + 그 인접 타일만
     const candidates = new Map();
     const addCandidate = (tile) => {
       if (tile && !tile.isBroken) {
@@ -341,6 +324,7 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
+    // 후보 집합 내에서만 연결성을 탐색
     candidates.forEach((tile, key) => {
       if (visited.has(key)) return;
 
@@ -353,8 +337,7 @@ export default class GameScene extends Phaser.Scene {
         const currentKey = `${current.q},${current.r}`;
 
         if (visited.has(currentKey)) continue;
-        if (current.isBroken) continue;
-        if (current.hp !== targetHp) continue;
+        if (current.isBroken || current.hp !== targetHp) continue;
 
         visited.add(currentKey);
         cluster.push(current);
@@ -362,7 +345,6 @@ export default class GameScene extends Phaser.Scene {
         getNeighbors(current.q, current.r).forEach(({ q, r }) => {
           const neighbor = candidates.get(`${q},${r}`);
           if (!neighbor) return;
-
           const neighborKey = `${neighbor.q},${neighbor.r}`;
           if (!visited.has(neighborKey)) {
             stack.push(neighbor);
@@ -421,16 +403,29 @@ export default class GameScene extends Phaser.Scene {
     return 1.0;
   }
 
-  // 파괴된 타일을 맵에서 제거
-  updateBoardStateAfterMatches() {
-    const brokenKeys = [];
+  // 파괴된 타일을 맵에서 제거하고 일정 시간 후 새 타일 생성
+  async updateBoardStateAfterMatches() {
+    const brokenTiles = [];
+
+    // 파괴된 타일 수집 후 맵에서 제거
     this.tiles.forEach((tile, key) => {
       if (tile.isBroken) {
-        brokenKeys.push(key);
+        brokenTiles.push({ q: tile.q, r: tile.r });
+        this.tiles.delete(key);
       }
     });
 
-    brokenKeys.forEach((key) => this.tiles.delete(key));
+    if (brokenTiles.length === 0) return;
+
+    // 빈 자리에 새 타일 생성
+    return new Promise((resolve) => {
+      this.time.delayedCall(500, () => {
+        brokenTiles.forEach(({ q, r }) => {
+          this.createIceTile(q, r);
+        });
+        resolve();
+      });
+    });
   }
 
   // 화면 크기 변경 시 UI/그리드 재배치
@@ -469,7 +464,7 @@ export default class GameScene extends Phaser.Scene {
 
       if (tile.tileSize !== this.tileSize) {
         tile.tileSize = this.tileSize;
-        const newColor = this.getColorByHP(tile.hp);
+        const newColor = getColorByHP(tile.hp);
         tile.hexagon.clear();
         this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
         tile.hpText.setFontSize(this.getHpFontSize());
@@ -633,6 +628,7 @@ export default class GameScene extends Phaser.Scene {
 
   // 터치 디바이스에 맞춘 터치 영역 크기
   getTouchAreaSize() {
-    return this.isTouch ? this.tileSize * 2.5 : this.tileSize * 2;
+    // 클릭/터치 영역을 줄여서 겹침 클릭을 방지
+    return this.isTouch ? this.tileSize * 1.8 : this.tileSize * 1.4;
   }
 }

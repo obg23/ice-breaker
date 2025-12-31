@@ -8,11 +8,13 @@
  * @param {number} q - 축 q 좌표
  * @param {number} r - 축 r 좌표
  * @param {number} size - 육각형 크기
+ * @param {number} spacing - 타일 간격 배율(1보다 크면 간격이 넓어짐)
  * @returns {{x: number, y: number}} 픽셀 좌표
  */
-export function axialToPixel(q, r, size) {
-  const x = size * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
-  const y = size * ((3 / 2) * r);
+export function axialToPixel(q, r, size, spacing = 1.01) {
+  const scaled = size * spacing;
+  const x = scaled * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
+  const y = scaled * ((3 / 2) * r);
   return { x, y };
 }
 
@@ -63,17 +65,17 @@ export function axialRound(q, r) {
  */
 export function getNeighbors(q, r) {
   const directions = [
-    { q: 1, r: 0 },   // 오른쪽
-    { q: 1, r: -1 },  // 오른쪽 위
-    { q: 0, r: -1 },  // 왼쪽 위
-    { q: -1, r: 0 },  // 왼쪽
-    { q: -1, r: 1 },  // 왼쪽 아래
-    { q: 0, r: 1 }    // 오른쪽 아래
+    { q: 1, r: 0 }, // 오른쪽
+    { q: 1, r: -1 }, // 오른쪽 위
+    { q: 0, r: -1 }, // 왼쪽 위
+    { q: -1, r: 0 }, // 왼쪽
+    { q: -1, r: 1 }, // 왼쪽 아래
+    { q: 0, r: 1 }, // 오른쪽 아래
   ];
 
-  return directions.map(dir => ({
+  return directions.map((dir) => ({
     q: q + dir.q,
-    r: r + dir.r
+    r: r + dir.r,
   }));
 }
 
@@ -86,5 +88,7 @@ export function getNeighbors(q, r) {
  * @returns {number} 거리
  */
 export function hexDistance(q1, r1, q2, r2) {
-  return (Math.abs(q1 - q2) + Math.abs(q1 + r1 - q2 - r2) + Math.abs(r1 - r2)) / 2;
+  return (
+    (Math.abs(q1 - q2) + Math.abs(q1 + r1 - q2 - r2) + Math.abs(r1 - r2)) / 2
+  );
 }
