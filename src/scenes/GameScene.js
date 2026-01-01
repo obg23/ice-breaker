@@ -90,7 +90,7 @@ export default class GameScene extends Phaser.Scene {
     this.gridCenter = { x: width / 2, y: height / 2 };
     this.gridContainer = this.add.container(
       this.gridCenter.x,
-      this.gridCenter.y
+      this.gridCenter.y,
     );
 
     // 육각형 그리드 생성 (axial coordinates)
@@ -122,17 +122,15 @@ export default class GameScene extends Phaser.Scene {
     const container = this.add.container(x, y);
     container.add(hexagon);
 
-    // HP 텍스트 (모바일 대응 폰트 크기)
-    /**
-    const hpText = this.add
-      .text(0, 0, maxHp, {
+    // 좌표 디버그 텍스트 (q,r 표기)
+    const positionText = this.add
+      .text(0, 0, `${q},${r}`, {
         fontSize: `${this.getHpFontSize()}px`,
         fill: "#ffffff",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
-    container.add(hpText);
-    /**/
+    // container.add(positionText);
     this.gridContainer.add(container);
 
     // 타일 데이터
@@ -143,11 +141,12 @@ export default class GameScene extends Phaser.Scene {
       maxHp,
       container,
       hexagon,
-      // hpText,
+      positionText,
       isBroken: false,
       relativePosition: { x: pos.x, y: pos.y },
       tileSize: this.tileSize,
     };
+    this.updateTileDepth(tileData);
 
     // 터치/클릭 이벤트 (모바일에서 더 큰 터치 영역)
     container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
@@ -243,7 +242,7 @@ export default class GameScene extends Phaser.Scene {
             ease: "Sine.easeInOut",
             onComplete: resolve,
           });
-        })
+        }),
     );
 
     return Promise.all(tweens).then(() => {
@@ -267,7 +266,9 @@ export default class GameScene extends Phaser.Scene {
       tile.q = next.qr.q;
       tile.r = next.qr.r;
       tile.relativePosition = next.position;
+      tile.positionText.setText(`${tile.q},${tile.r}`);
       tile.container.setPosition(next.position.x, next.position.y);
+      this.updateTileDepth(tile);
       this.tiles.set(`${tile.q},${tile.r}`, tile);
     });
   }
@@ -304,29 +305,20 @@ export default class GameScene extends Phaser.Scene {
     this.scheduleWinLoseCheck();
   }
 
-  // 회전 타일과 인접 타일만으로 동일 HP 3개 이상 클러스터 탐색
+  // 회전으로 영향 받은 타일부터 시작해 전체 보드에서 동일 HP 3개 이상 클러스터 탐색
   findMatchingClusters(pivotTiles = []) {
     const visited = new Set();
     const clusters = [];
 
-    // 검사 후보: 회전된 3개 + 그 인접 타일만
-    const candidates = new Map();
-    const addCandidate = (tile) => {
-      if (tile && !tile.isBroken) {
-        candidates.set(`${tile.q},${tile.r}`, tile);
-      }
-    };
+    // 회전된 타일을 시작점으로 삼고, 동일 HP가 이어지는 한 전체 맵을 따라간다
+    const seeds =
+      pivotTiles.length > 0
+        ? pivotTiles.filter((t) => t && !t.isBroken)
+        : Array.from(this.tiles.values()).filter((t) => !t.isBroken);
 
-    pivotTiles.forEach((tile) => {
-      addCandidate(tile);
-      getNeighbors(tile.q, tile.r).forEach(({ q, r }) => {
-        addCandidate(this.tiles.get(`${q},${r}`));
-      });
-    });
-
-    // 후보 집합 내에서만 연결성을 탐색
-    candidates.forEach((tile, key) => {
-      if (visited.has(key)) return;
+    seeds.forEach((tile) => {
+      const startKey = `${tile.q},${tile.r}`;
+      if (visited.has(startKey)) return;
 
       const targetHp = tile.hp;
       const cluster = [];
@@ -343,10 +335,9 @@ export default class GameScene extends Phaser.Scene {
         cluster.push(current);
 
         getNeighbors(current.q, current.r).forEach(({ q, r }) => {
-          const neighbor = candidates.get(`${q},${r}`);
+          const neighbor = this.tiles.get(`${q},${r}`);
           if (!neighbor) return;
-          const neighborKey = `${neighbor.q},${neighbor.r}`;
-          if (!visited.has(neighborKey)) {
+          if (!visited.has(`${neighbor.q},${neighbor.r}`)) {
             stack.push(neighbor);
           }
         });
@@ -467,11 +458,12 @@ export default class GameScene extends Phaser.Scene {
         const newColor = getColorByHP(tile.hp);
         tile.hexagon.clear();
         this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
-        tile.hpText.setFontSize(this.getHpFontSize());
+        tile.positionText.setFontSize(this.getHpFontSize());
         tile.container.setSize(
           this.getTouchAreaSize(),
-          this.getTouchAreaSize()
+          this.getTouchAreaSize(),
         );
+        this.updateTileDepth(tile);
       }
     });
 
@@ -482,7 +474,7 @@ export default class GameScene extends Phaser.Scene {
       const scale = Math.min(
         availableW / bounds.width,
         availableH / bounds.height,
-        1
+        1,
       );
       this.gridContainer.setScale(scale);
       this.gridContainer.setPosition(gridCenterX, gridCenterY);
@@ -543,7 +535,7 @@ export default class GameScene extends Phaser.Scene {
   updateTurnsText() {
     if (this.turnsText) {
       this.turnsText.setText(
-        `TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`
+        `TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`,
       );
     }
   }
@@ -630,5 +622,14 @@ export default class GameScene extends Phaser.Scene {
   getTouchAreaSize() {
     // 클릭/터치 영역을 줄여서 겹침 클릭을 방지
     return this.isTouch ? this.tileSize * 1.8 : this.tileSize * 1.4;
+  }
+
+  // 타일의 z-순서를 일관되게 맞춰 겹침을 방지
+  updateTileDepth(tile) {
+    if (!tile || !tile.container) return;
+    // r을 우선, q를 보조로 깊이를 정렬해 아래줄이 위로 덮이지 않도록 고정
+    const depth =
+      (tile.r + this.gridRadius * 2) * 1000 + (tile.q + this.gridRadius * 2);
+    tile.container.setDepth(depth);
   }
 }
