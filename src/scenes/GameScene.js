@@ -1,10 +1,10 @@
 import Phaser from "phaser";
 import { axialToPixel, getNeighbors } from "../utils/hexUtils.js";
-import { getColorByHP } from "../config/uiConfig.js";
 
 const TURN_FACTOR = 0.55;
-const UI_TOP = 60;
+const DEFAULT_UI_TOP = 60;
 const PADDING = 16;
+const QUEST_TARGET_PER_COLOR = 30;
 
 export default class GameScene extends Phaser.Scene {
   // 씬 키 등록
@@ -25,6 +25,26 @@ export default class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.winLoseCheckTimer = null;
     this.isInputBlocked = false;
+    this.uiTop = DEFAULT_UI_TOP;
+    this.questBarHeight = 72;
+    // HP 값과 실제 타일 색 순서를 맞춘 정의 (frame = hp - 1)
+    this.colorDefinitions = [
+      { id: 1, label: "보라", color: 0x8338ec },
+      { id: 2, label: "회색", color: 0x8c8c8c },
+      { id: 3, label: "초록", color: 0x00b140 },
+      { id: 4, label: "파랑", color: 0x3a86ff },
+      { id: 5, label: "노랑", color: 0xffbe0b },
+      { id: 6, label: "분홍", color: 0xff006e },
+    ];
+    this.questRemaining = {};
+    this.colorDefinitions.forEach((def) => {
+      this.questRemaining[def.id] = QUEST_TARGET_PER_COLOR;
+    });
+
+    this.load.spritesheet("gearTiles", "assets/gear-tile.png", {
+      frameWidth: 128,
+      frameHeight: 128,
+    });
 
     this.isTouch = this.sys.game.device.input.touch;
 
@@ -82,6 +102,113 @@ export default class GameScene extends Phaser.Scene {
         fontStyle: "bold",
       })
       .setOrigin(1, 0);
+
+    this.createQuestUIElements();
+  }
+
+  createQuestUIElements() {
+    const { width } = this.scale.gameSize;
+    const bgWidth = Math.max(200, width - PADDING * 2);
+
+    this.questContainer = this.add.container(0, 0).setDepth(1000);
+    this.questBg = this.add
+      .rectangle(PADDING, PADDING, bgWidth, this.questBarHeight, 0x0d2030, 0.75)
+      .setOrigin(0, 0);
+    this.questTitle = this.add
+      .text(PADDING + 10, PADDING + 8, "색깔별로 30개 파괴", {
+        fontSize: "18px",
+        fill: "#cce7ff",
+        fontStyle: "bold",
+      })
+      .setOrigin(0, 0);
+    this.questContainer.add([this.questBg, this.questTitle]);
+
+    this.questItems = new Map();
+    this.colorDefinitions.forEach((def) => {
+      const itemContainer = this.add.container(0, 0);
+      const chip = this.add
+        .circle(0, 0, 9, def.color, 1)
+        .setStrokeStyle(1, 0xffffff, 0.8);
+      const text = this.add
+        .text(0, 0, "", {
+          fontSize: "16px",
+          fill: this.toHexColor(def.color),
+          fontStyle: "bold",
+        })
+        .setOrigin(0, 0.5);
+      itemContainer.add([chip, text]);
+      this.questContainer.add(itemContainer);
+      this.questItems.set(def.id, { container: itemContainer, chip, text });
+      this.updateQuestText(def.id);
+    });
+    this.layoutQuestUI(this.scale.gameSize);
+  }
+
+  layoutQuestUI(gameSize) {
+    if (!this.questContainer || !this.questBg) return;
+
+    const { width } = gameSize;
+    const isSmall = width <= 480;
+    const questFontSize = isSmall ? 14 : 16;
+    const questTitleSize = isSmall ? 16 : 18;
+    const chipRadius = isSmall ? 7 : 9;
+    const bgWidth = Math.max(220, width - PADDING * 2);
+
+    this.questBarHeight = questTitleSize + questFontSize + 22;
+
+    this.questBg.setSize(bgWidth, this.questBarHeight);
+    this.questBg.setPosition(PADDING, PADDING);
+
+    this.questTitle.setFontSize(questTitleSize);
+    this.questTitle.setPosition(PADDING + 10, PADDING + 8);
+
+    const slotWidth = bgWidth / this.colorDefinitions.length;
+    const itemY = PADDING + this.questBarHeight - questFontSize - 6;
+
+    this.colorDefinitions.forEach((def, index) => {
+      const entry = this.questItems.get(def.id);
+      if (!entry) return;
+
+      entry.container.setPosition(
+        PADDING + slotWidth * index + 6,
+        itemY
+      );
+
+      entry.chip.setRadius(chipRadius);
+      entry.chip.setPosition(0, 0);
+      entry.chip.setStrokeStyle(1, 0xffffff, 0.8);
+
+      entry.text.setFontSize(questFontSize);
+      entry.text.setColor(this.toHexColor(def.color));
+      entry.text.setPosition(chipRadius * 2 + 6, 0);
+
+      this.updateQuestText(def.id);
+    });
+  }
+
+  updateQuestText(colorId) {
+    const entry = this.questItems?.get(colorId);
+    const def = this.colorDefinitions.find((c) => c.id === colorId);
+    if (!entry || !def) return;
+
+    const remaining = this.questRemaining[colorId] ?? QUEST_TARGET_PER_COLOR;
+    entry.text.setText(`${def.label} ${remaining}/${QUEST_TARGET_PER_COLOR}`);
+  }
+
+  applyQuestProgress(tile) {
+    if (!tile) return;
+    const colorId = tile.maxHp;
+    if (this.questRemaining[colorId] === undefined) return;
+
+    this.questRemaining[colorId] = Math.max(
+      0,
+      (this.questRemaining[colorId] ?? QUEST_TARGET_PER_COLOR) - 1
+    );
+    this.updateQuestText(colorId);
+  }
+
+  toHexColor(intColor) {
+    return `#${intColor.toString(16).padStart(6, "0")}`;
   }
 
   // 화면 크기에 맞춰 육각형 보드 생성
@@ -90,7 +217,7 @@ export default class GameScene extends Phaser.Scene {
     this.gridCenter = { x: width / 2, y: height / 2 };
     this.gridContainer = this.add.container(
       this.gridCenter.x,
-      this.gridCenter.y,
+      this.gridCenter.y
     );
 
     // 육각형 그리드 생성 (axial coordinates)
@@ -105,22 +232,22 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // 단일 육각 타일 생성 및 클릭 이벤트 연결
-  // 단일 육각 타일 생성 및 클릭 이벤트 연결
   createIceTile(q, r) {
     const pos = axialToPixel(q, r, this.tileSize);
     const { x, y } = pos;
 
     // 랜덤 HP (1~6)
     const maxHp = Phaser.Math.Between(1, 6);
+    const frame = maxHp - 1; // gearTiles spritesheet frame index
 
-    // 육각형 그래픽 생성
-    const hexagon = this.add.graphics();
-    const color = getColorByHP(maxHp);
-    this.drawHexagon(hexagon, 0, 0, this.tileSize, color);
+    // 육각 기어 스프라이트 생성
+    const sprite = this.add.sprite(0, 0, "gearTiles", frame);
+    sprite.setOrigin(0.5);
+    sprite.setDisplaySize(this.getTileDisplaySize(), this.getTileDisplaySize());
 
     // 컨테이너로 육각형과 텍스트 묶기
     const container = this.add.container(x, y);
-    container.add(hexagon);
+    container.add(sprite);
 
     // 좌표 디버그 텍스트 (q,r 표기)
     const positionText = this.add
@@ -140,7 +267,7 @@ export default class GameScene extends Phaser.Scene {
       hp: maxHp,
       maxHp,
       container,
-      hexagon,
+      sprite,
       positionText,
       isBroken: false,
       relativePosition: { x: pos.x, y: pos.y },
@@ -155,27 +282,6 @@ export default class GameScene extends Phaser.Scene {
 
     // Map에 저장
     this.tiles.set(`${q},${r}`, tileData);
-  }
-
-  // 육각형 도형을 그리는 유틸
-  drawHexagon(graphics, x, y, size, color) {
-    graphics.fillStyle(color, 1);
-    graphics.lineStyle(2, 0xffffff, 1);
-
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i;
-      points.push(x + size * Math.cos(angle), y + size * Math.sin(angle));
-    }
-
-    graphics.beginPath();
-    graphics.moveTo(points[0], points[1]);
-    for (let i = 2; i < points.length; i += 2) {
-      graphics.lineTo(points[i], points[i + 1]);
-    }
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
   }
 
   // 타일 클릭 시 회전 후 매칭 검사
@@ -231,7 +337,7 @@ export default class GameScene extends Phaser.Scene {
       };
     });
 
-    const tweens = rotationTargets.map(
+    const movementTweens = rotationTargets.map(
       (tile, index) =>
         new Promise((resolve) => {
           this.tweens.add({
@@ -242,10 +348,28 @@ export default class GameScene extends Phaser.Scene {
             ease: "Sine.easeInOut",
             onComplete: resolve,
           });
-        }),
+        })
     );
 
-    return Promise.all(tweens).then(() => {
+    const rotationTweens = rotationTargets.map(
+      (tile) =>
+        new Promise((resolve) => {
+          if (!tile.sprite) {
+            resolve();
+            return;
+          }
+
+          this.tweens.add({
+            targets: tile.sprite,
+            rotation: tile.sprite.rotation + Phaser.Math.DegToRad(120),
+            duration: 250,
+            ease: "Sine.easeInOut",
+            onComplete: resolve,
+          });
+        })
+    );
+
+    return Promise.all([...movementTweens, ...rotationTweens]).then(() => {
       this.applyRotationState(rotationTargets, nextPositions);
     });
   }
@@ -278,6 +402,7 @@ export default class GameScene extends Phaser.Scene {
     if (tile.isBroken) return;
 
     tile.isBroken = true;
+    this.applyQuestProgress(tile);
 
     // 파괴 애니메이션
     this.tweens.add({
@@ -426,22 +551,27 @@ export default class GameScene extends Phaser.Scene {
     const comboFontSize = baseFontSize + 6;
 
     this.updateLayoutConfig(gameSize);
+    this.layoutQuestUI(gameSize);
 
     if (this.background) {
       this.background.setSize(width, height);
     }
 
+    const statsY = (this.questBarHeight || DEFAULT_UI_TOP) + PADDING + 6;
+
     this.scoreText.setFontSize(baseFontSize);
-    this.scoreText.setPosition(PADDING, PADDING);
+    this.scoreText.setPosition(PADDING, statsY);
 
     this.turnsText.setFontSize(baseFontSize);
-    this.turnsText.setPosition(width / 2, PADDING);
+    this.turnsText.setPosition(width / 2, statsY);
 
     this.comboText.setFontSize(comboFontSize);
-    this.comboText.setPosition(width - PADDING, PADDING);
+    this.comboText.setPosition(width - PADDING, statsY);
+
+    this.uiTop = statsY + baseFontSize + 12;
 
     const gridCenterX = width / 2;
-    const gridCenterY = UI_TOP + (height - UI_TOP) / 2;
+    const gridCenterY = this.uiTop + (height - this.uiTop) / 2;
 
     if (this.gridContainer) {
       this.gridContainer.setPosition(gridCenterX, gridCenterY);
@@ -455,13 +585,16 @@ export default class GameScene extends Phaser.Scene {
 
       if (tile.tileSize !== this.tileSize) {
         tile.tileSize = this.tileSize;
-        const newColor = getColorByHP(tile.hp);
-        tile.hexagon.clear();
-        this.drawHexagon(tile.hexagon, 0, 0, this.tileSize, newColor);
+        if (tile.sprite) {
+          tile.sprite.setDisplaySize(
+            this.getTileDisplaySize(),
+            this.getTileDisplaySize()
+          );
+        }
         tile.positionText.setFontSize(this.getHpFontSize());
         tile.container.setSize(
           this.getTouchAreaSize(),
-          this.getTouchAreaSize(),
+          this.getTouchAreaSize()
         );
         this.updateTileDepth(tile);
       }
@@ -470,11 +603,11 @@ export default class GameScene extends Phaser.Scene {
     if (this.gridContainer) {
       const bounds = this.gridContainer.getBounds();
       const availableW = width - PADDING * 2;
-      const availableH = height - UI_TOP - PADDING * 2;
+      const availableH = height - this.uiTop - PADDING * 2;
       const scale = Math.min(
         availableW / bounds.width,
         availableH / bounds.height,
-        1,
+        1
       );
       this.gridContainer.setScale(scale);
       this.gridContainer.setPosition(gridCenterX, gridCenterY);
@@ -535,7 +668,7 @@ export default class GameScene extends Phaser.Scene {
   updateTurnsText() {
     if (this.turnsText) {
       this.turnsText.setText(
-        `TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`,
+        `TURNS: ${this.turnsRemaining} / ${this.turnsTotal}`
       );
     }
   }
@@ -616,6 +749,11 @@ export default class GameScene extends Phaser.Scene {
     if (this.tileSize <= 28) return this.isTouch ? 16 : 18;
     if (this.tileSize <= 34) return this.isTouch ? 18 : 20;
     return this.isTouch ? 20 : 22;
+  }
+
+  // 기어 스프라이트의 표시 지름
+  getTileDisplaySize() {
+    return this.tileSize * 2;
   }
 
   // 터치 디바이스에 맞춘 터치 영역 크기

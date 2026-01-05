@@ -1,34 +1,39 @@
-import Phaser from 'phaser';
+import Phaser from "phaser";
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'BootScene' });
+    super({ key: "BootScene" });
   }
 
   preload() {
     this.loadingProgress = 0;
     this.updateLoadingLayout(this.scale.gameSize);
 
-    this.scale.on('resize', this.onResize, this);
-    this.events.on('shutdown', this.onShutdown, this);
+    this.scale.on("resize", this.onResize, this);
+    this.events.on("shutdown", this.onShutdown, this);
 
-    this.load.on('progress', (value) => {
+    this.load.on("progress", (value) => {
       this.updateProgressBar(value);
     });
 
-    this.load.on('complete', () => {
+    this.load.on("complete", () => {
       this.progressBar?.destroy();
       this.progressBox?.destroy();
       this.loadingText?.destroy();
     });
 
-    // 여기에 추후 에셋 로드 추가
-    // this.load.image('ice-tile', '/assets/ice-tile.png');
+    // Tile sprite sheet (3x2 grid, 6 colors)
+    // 원본 이미지가 1024x1024이고 3열x2행으로 배치되어 있으므로
+    // 프레임 크기를 341x512로 잘라 6프레임을 얻는다.
+    this.load.spritesheet("gearTiles", "assets/gear-tile.png", {
+      frameWidth: 341,
+      frameHeight: 512,
+    });
     // this.load.audio('crack', '/assets/crack.mp3');
   }
 
   create() {
-    this.scene.start('GameScene');
+    this.scene.start("GameScene");
   }
 
   updateLoadingLayout(gameSize) {
@@ -43,10 +48,12 @@ export default class BootScene extends Phaser.Scene {
     this.loadingDimensions = { barWidth, barHeight, fontSize };
 
     if (!this.loadingText) {
-      this.loadingText = this.add.text(width / 2, height / 2 - 50, '로딩 중...', {
-        fontSize: `${fontSize}px`,
-        fill: '#ffffff'
-      }).setOrigin(0.5);
+      this.loadingText = this.add
+        .text(width / 2, height / 2 - 50, "濡쒕뵫 以?..", {
+          fontSize: `${fontSize}px`,
+          fill: "#ffffff",
+        })
+        .setOrigin(0.5);
     } else {
       this.loadingText.setFontSize(fontSize);
       this.loadingText.setPosition(width / 2, height / 2 - 50);
@@ -57,7 +64,12 @@ export default class BootScene extends Phaser.Scene {
     }
     this.progressBox.clear();
     this.progressBox.fillStyle(0x222222, 0.8);
-    this.progressBox.fillRect(width / 2 - barWidth / 2, height / 2, barWidth, barHeight);
+    this.progressBox.fillRect(
+      width / 2 - barWidth / 2,
+      height / 2,
+      barWidth,
+      barHeight
+    );
 
     if (!this.progressBar) {
       this.progressBar = this.add.graphics();
@@ -67,7 +79,8 @@ export default class BootScene extends Phaser.Scene {
 
   updateProgressBar(value) {
     this.loadingProgress = value;
-    if (!this.progressBar || !this.loadingDimensions || !this.lastGameSize) return;
+    if (!this.progressBar || !this.loadingDimensions || !this.lastGameSize)
+      return;
 
     const { width, height } = this.lastGameSize;
     const { barWidth, barHeight } = this.loadingDimensions;
@@ -89,6 +102,6 @@ export default class BootScene extends Phaser.Scene {
   }
 
   onShutdown() {
-    this.scale.off('resize', this.onResize, this);
+    this.scale.off("resize", this.onResize, this);
   }
 }
