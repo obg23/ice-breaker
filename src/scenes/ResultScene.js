@@ -7,9 +7,6 @@ export default class ResultScene extends Phaser.Scene {
 
   init(data) {
     this.finalScore = data.score || 0;
-    this.isWin = Boolean(data.isWin);
-    this.turnsRemaining = data.turnsRemaining ?? 0;
-    this.turnsTotal = data.turnsTotal ?? 0;
     this.isTouch = this.sys.game.device.input.touch;
   }
 
@@ -20,7 +17,7 @@ export default class ResultScene extends Phaser.Scene {
     this.background = this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
 
     // 게임 오버 텍스트
-    const title = this.isWin ? 'CLEAR!' : 'FAILED';
+    const title = 'TIME UP';
     this.titleText = this.add.text(width / 2, height / 3, title, {
       fontSize: '48px',
       fill: '#ffffff',
@@ -28,37 +25,32 @@ export default class ResultScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // 최종 점수
-    this.scoreText = this.add.text(width / 2, height / 2 - 50, `Score: ${this.finalScore}`, {
+    this.scoreText = this.add.text(width / 2, height / 2 - 50, `FINAL SCORE: ${this.finalScore}`, {
       fontSize: '32px',
       fill: '#00ffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     // 남은 턴
-    this.turnsText = this.add.text(width / 2, height / 2 - 10, `Turns Left: ${this.turnsRemaining} / ${this.turnsTotal}`, {
-      fontSize: '24px',
-      fill: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
 
     // 최고 점수 (로컬 스토리지 사용)
     const highScore = this.getHighScore();
     if (this.finalScore > highScore) {
       this.saveHighScore(this.finalScore);
-      this.newRecordText = this.add.text(width / 2, height / 2 + 30, '🎉 신기록! 🎉', {
+      this.newRecordText = this.add.text(width / 2, height / 2 + 30, 'NEW BEST!', {
         fontSize: '24px',
         fill: '#ffff00',
         fontStyle: 'bold'
       }).setOrigin(0.5);
     }
 
-    this.highScoreText = this.add.text(width / 2, height / 2 + 70, `최고 점수: ${Math.max(highScore, this.finalScore)}`, {
+    this.highScoreText = this.add.text(width / 2, height / 2 + 70, `BEST SCORE: ${Math.max(highScore, this.finalScore)}`, {
       fontSize: '24px',
       fill: '#ffffff'
     }).setOrigin(0.5);
 
     // 재시작 버튼 (모바일에서 더 큰 터치 영역)
-    this.restartButton = this.add.text(width / 2, height * 2 / 3, '다시 시작', {
+    this.restartButton = this.add.text(width / 2, height * 2 / 3, 'PLAY AGAIN', {
       fontSize: '28px',
       fill: '#ffffff',
       backgroundColor: '#4a90e2',
@@ -108,11 +100,6 @@ export default class ResultScene extends Phaser.Scene {
 
     this.scoreText.setFontSize(scoreFontSize);
     this.scoreText.setPosition(width / 2, height / 2 - 50);
-
-    if (this.turnsText) {
-      this.turnsText.setFontSize(normalFontSize);
-      this.turnsText.setPosition(width / 2, height / 2 - 10);
-    }
 
     if (this.newRecordText) {
       this.newRecordText.setFontSize(normalFontSize);

@@ -17,7 +17,8 @@ export default class GameScene extends Phaser.Scene {
     // 게임 상태 초기화
     this.score = 0;
     this.combo = 0;
-    this.comboTimer = null;
+    this.comboWindowMs = 1350;
+    this.lastMatchAt = 0;
     this.turnsTotal = 0;
     this.turnsRemaining = 0;
     this.totalHP = 0;
@@ -27,6 +28,9 @@ export default class GameScene extends Phaser.Scene {
     this.isInputBlocked = false;
     this.uiTop = DEFAULT_UI_TOP;
     this.questBarHeight = 72;
+    this.timeLeft = 30.0;
+    this.timeMax = 90.0;
+    this.timeEvent = null;
     // HP 값과 실제 타일 색 순서를 맞춘 정의 (frame = hp - 1)
     this.colorDefinitions = [
       { id: 1, label: "보라", color: 0x8338ec },
@@ -73,7 +77,7 @@ export default class GameScene extends Phaser.Scene {
     this.events.on("shutdown", this.onShutdown, this);
 
     // 턴 초기화
-    this.initializeTurns();
+    this.startTimer();
   }
 
   // 점수/턴/콤보 텍스트 UI 생성
@@ -85,14 +89,15 @@ export default class GameScene extends Phaser.Scene {
       fontStyle: "bold",
     });
 
-    // 턴 표시
-    this.turnsText = this.add
-      .text(0, 0, "TURNS: 0 / 0", {
+    // 시간 표시
+    this.timeText = this.add
+      .text(0, 0, "TIME: 30.0", {
         fontSize: "24px",
         fill: "#ffffff",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0);
+
 
     // 콤보 표시
     this.comboText = this.add
@@ -293,7 +298,6 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.consumeTurn();
     this.isInputBlocked = true;
 
     try {
@@ -415,18 +419,6 @@ export default class GameScene extends Phaser.Scene {
       },
     });
 
-    // 점수 계산
-    const baseScore = 100;
-    const chainBonus = isChain ? 50 : 0;
-    const comboMultiplier = this.getComboMultiplier();
-    const earnedScore = (baseScore + chainBonus) * comboMultiplier;
-
-    this.score += earnedScore;
-    this.scoreText.setText(`점수: ${this.score}`);
-
-    // 콤보 증가
-    this.increaseCombo();
-
     this.scheduleWinLoseCheck();
   }
 
@@ -476,37 +468,60 @@ export default class GameScene extends Phaser.Scene {
     return clusters;
   }
 
+  
   // 찾은 클러스터를 순서대로 파괴
   destroyMatchedTiles(clusters) {
     if (!clusters || clusters.length === 0) return;
 
+    const now = this.time.now;
+    this.updateComboOnMatch(now);
+    const comboMultiplier = this.getComboMultiplier();
+    let totalDestroyed = 0;
+    let baseSeconds = 0;
+
     clusters.forEach((cluster, clusterIndex) => {
+      totalDestroyed += cluster.length;
+      if (cluster.length >= 4) {
+        baseSeconds += 0.8;
+      } else if (cluster.length === 3) {
+        baseSeconds += 0.5;
+      } else if (cluster.length === 2) {
+        baseSeconds += 0.2;
+      }
+
       cluster.forEach((tile) => {
         this.breakTile(tile, clusterIndex > 0);
       });
     });
-  }
 
-  // 콤보 카운트 증가 및 타이머 리셋
-  increaseCombo() {
-    this.combo += 1;
-    this.updateComboText();
-
-    // 콤보 타이머 리셋
-    if (this.comboTimer) {
-      this.comboTimer.remove();
+    if (totalDestroyed > 0) {
+      const earnedScore = Math.round(totalDestroyed * 100 * comboMultiplier);
+      this.score += earnedScore;
+      this.scoreText.setText(`점수: ${this.score}`);
     }
 
-    this.comboTimer = this.time.delayedCall(1500, () => {
-      this.combo = 0;
-      this.updateComboText();
-    });
+    const addSeconds = baseSeconds * comboMultiplier;
+    if (addSeconds > 0) {
+      this.addTimeBonus(addSeconds);
+    }
+  }
+
+  
+  // 콤보 갱신 (매칭 확정 시에만 처리)
+  updateComboOnMatch(now) {
+    if (now - this.lastMatchAt <= this.comboWindowMs) {
+      this.combo += 1;
+    } else {
+      this.combo = 1;
+    }
+    this.lastMatchAt = now;
+    this.updateComboText();
   }
 
   // 콤보 텍스트 갱신
   updateComboText() {
     if (this.combo > 1) {
-      this.comboText.setText(`콤보 x${this.combo}`);
+      this.comboText.setText(`COMBO: x${this.combo}`);
     } else {
       this.comboText.setText("");
     }
@@ -514,8 +529,8 @@ export default class GameScene extends Phaser.Scene {
 
   // 콤보 배수 계산
   getComboMultiplier() {
-    if (this.combo >= 7) return 2.0;
-    if (this.combo >= 4) return 1.5;
+    if (this.combo >= 6) return 1.4;
+    if (this.combo >= 3) return 1.2;
     return 1.0;
   }
 
@@ -562,8 +577,8 @@ export default class GameScene extends Phaser.Scene {
     this.scoreText.setFontSize(baseFontSize);
     this.scoreText.setPosition(PADDING, statsY);
 
-    this.turnsText.setFontSize(baseFontSize);
-    this.turnsText.setPosition(width / 2, statsY);
+    this.timeText.setFontSize(baseFontSize);
+    this.timeText.setPosition(width / 2, statsY);
 
     this.comboText.setFontSize(comboFontSize);
     this.comboText.setPosition(width - PADDING, statsY);
@@ -617,6 +632,10 @@ export default class GameScene extends Phaser.Scene {
   // 씬 종료 시 리스너 정리
   onShutdown() {
     this.scale.off("resize", this.onResize, this);
+    if (this.timeEvent) {
+      this.timeEvent.remove(false);
+      this.timeEvent = null;
+    }
   }
 
   // 총 HP 기반으로 턴 수 초기화
@@ -685,16 +704,11 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  // 남은 타일/턴으로 승패 판정
+  // 시간 종료 시 게임 종료
   checkWinLose() {
     if (this.isGameOver) return;
 
-    if (this.isAllTilesBroken()) {
-      this.endGame(true);
-      return;
-    }
-
-    if (this.turnsRemaining <= 0) {
+    if (this.timeLeft <= 0) {
       this.endGame(false);
     }
   }
@@ -704,11 +718,13 @@ export default class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
+    if (this.timeEvent) {
+      this.timeEvent.remove(false);
+      this.timeEvent = null;
+    }
+
     const resultData = {
       score: this.score,
-      isWin: Boolean(isWin),
-      turnsRemaining: this.turnsRemaining,
-      turnsTotal: this.turnsTotal,
     };
 
     // 게임 종료 후 결과 화면으로 이동
@@ -717,6 +733,73 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+
+  startTimer() {
+    if (this.timeEvent) {
+      this.timeEvent.remove(false);
+    }
+
+    this.updateTimeText();
+    this.timeEvent = this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (this.isGameOver) return;
+        this.timeLeft = Math.max(0, this.timeLeft - 0.1);
+        this.updateTimeText();
+
+        if (this.timeLeft <= 0) {
+          this.endGame(false);
+        }
+      },
+    });
+  }
+
+  updateTimeText() {
+    if (!this.timeText) return;
+    this.timeText.setText(`TIME: ${this.timeLeft.toFixed(1)}`);
+  }
+
+  addTimeBonus(addSeconds) {
+    this.timeLeft = Math.min(this.timeMax, this.timeLeft + addSeconds);
+    this.updateTimeText();
+    this.playTimeBonusFeedback(addSeconds);
+  }
+
+  playTimeBonusFeedback(addSeconds) {
+    if (!this.timeText) return;
+
+    this.timeText.setScale(1);
+    this.tweens.add({
+      targets: this.timeText,
+      scale: 1.15,
+      duration: 100,
+      yoyo: true,
+      ease: "Sine.easeOut",
+    });
+
+    const gainText = this.add
+      .text(
+        this.timeText.x + 36,
+        this.timeText.y + 4,
+        `+${addSeconds.toFixed(1)}s`,
+        {
+          fontSize: "18px",
+          fill: "#00ff99",
+          fontStyle: "bold",
+        }
+      )
+      .setOrigin(0, 0.5);
+
+    this.tweens.add({
+      targets: gainText,
+      y: this.timeText.y - 18,
+      alpha: 0,
+      duration: 600,
+      ease: "Sine.easeOut",
+      onComplete: () => gainText.destroy(),
+    });
+  }
   // 화면 크기에 따라 타일 크기/그리드 반경 결정
   updateLayoutConfig(gameSize) {
     const { width } = gameSize;
