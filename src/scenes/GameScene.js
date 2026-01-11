@@ -5,6 +5,7 @@ const TURN_FACTOR = 0.55;
 const DEFAULT_UI_TOP = 60;
 const PADDING = 16;
 const QUEST_TARGET_PER_COLOR = 30;
+const MIN_MATCH_COUNT = 5;
 
 export default class GameScene extends Phaser.Scene {
   // 씬 키 등록
@@ -98,7 +99,6 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
-
     // 콤보 표시
     this.comboText = this.add
       .text(0, 0, "", {
@@ -174,10 +174,7 @@ export default class GameScene extends Phaser.Scene {
       const entry = this.questItems.get(def.id);
       if (!entry) return;
 
-      entry.container.setPosition(
-        PADDING + slotWidth * index + 6,
-        itemY
-      );
+      entry.container.setPosition(PADDING + slotWidth * index + 6, itemY);
 
       entry.chip.setRadius(chipRadius);
       entry.chip.setPosition(0, 0);
@@ -287,6 +284,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Map에 저장
     this.tiles.set(`${q},${r}`, tileData);
+    return tileData;
   }
 
   // 타일 클릭 시 회전 후 매칭 검사
@@ -460,7 +458,7 @@ export default class GameScene extends Phaser.Scene {
         });
       }
 
-      if (cluster.length >= 3) {
+      if (cluster.length >= MIN_MATCH_COUNT) {
         clusters.push(cluster);
       }
     });
@@ -468,7 +466,6 @@ export default class GameScene extends Phaser.Scene {
     return clusters;
   }
 
-  
   // 찾은 클러스터를 순서대로 파괴
   destroyMatchedTiles(clusters) {
     if (!clusters || clusters.length === 0) return;
@@ -506,7 +503,6 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  
   // 콤보 갱신 (매칭 확정 시에만 처리)
   updateComboOnMatch(now) {
     if (now - this.lastMatchAt <= this.comboWindowMs) {
@@ -551,9 +547,19 @@ export default class GameScene extends Phaser.Scene {
     // 빈 자리에 새 타일 생성
     return new Promise((resolve) => {
       this.time.delayedCall(500, () => {
+        const createdTiles = [];
         brokenTiles.forEach(({ q, r }) => {
-          this.createIceTile(q, r);
+          const tile = this.createIceTile(q, r);
+          if (tile) {
+            createdTiles.push(tile);
+          }
         });
+        const clusters = this.findMatchingClusters(createdTiles);
+        if (clusters.length > 0) {
+          this.destroyMatchedTiles(clusters);
+          this.updateBoardStateAfterMatches().then(resolve);
+          return;
+        }
         resolve();
       });
     });
@@ -732,7 +738,6 @@ export default class GameScene extends Phaser.Scene {
       this.scene.start("ResultScene", resultData);
     });
   }
-
 
   startTimer() {
     if (this.timeEvent) {
