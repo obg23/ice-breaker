@@ -3,6 +3,10 @@ import BootScene from './scenes/BootScene.js';
 import GameScene from './scenes/GameScene.js';
 import ResultScene from './scenes/ResultScene.js';
 
+const BASE_WIDTH = 720;
+const BASE_HEIGHT = 1280;
+const USE_ENVELOP_SCALE = false;
+
 const config = {
   type: Phaser.AUTO,
   backgroundColor: '#1a1a2e',
@@ -10,10 +14,10 @@ const config = {
   scene: [BootScene, GameScene, ResultScene],
   scale: {
     // FIT keeps the entire game visible without cropping while maintaining aspect ratio
-    mode: Phaser.Scale.FIT,
+    mode: USE_ENVELOP_SCALE ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 800,
-    height: 600
+    width: BASE_WIDTH,
+    height: BASE_HEIGHT
   },
   physics: {
     default: 'arcade',
@@ -35,3 +39,21 @@ const config = {
 
 // eslint-disable-next-line no-unused-vars
 const game = new Phaser.Game(config);
+
+const rotateOverlay = document.getElementById('rotate-overlay');
+
+const updateOrientationOverlay = () => {
+  if (!rotateOverlay) return;
+  const isLandscape = window.innerWidth > window.innerHeight;
+  rotateOverlay.style.display = isLandscape ? 'flex' : 'none';
+};
+
+const handleResize = () => {
+  game.scale.resize(BASE_WIDTH, BASE_HEIGHT);
+  game.scale.refresh();
+  updateOrientationOverlay();
+};
+
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', handleResize);
+updateOrientationOverlay();
