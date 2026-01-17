@@ -239,7 +239,7 @@ export default class GameScene extends Phaser.Scene {
     const frameName = `tile_${maxHp - 1}`; // atlas frame name
 
     // 육각 기어 스프라이트 생성
-    const sprite = this.add.sprite(0, 0, "gearTiles", frameName);
+    const sprite = this.add.sprite(0, 0, "iceTiles", frameName);
     sprite.setOrigin(0.5);
     sprite.setDisplaySize(this.getTileDisplaySize(), this.getTileDisplaySize());
 
@@ -837,7 +837,7 @@ export default class GameScene extends Phaser.Scene {
 
   // 기어 스프라이트의 표시 지름
   getTileDisplaySize() {
-    return this.tileSize * 2;
+    return this.tileSize * 2.0;
   }
 
   // 터치 디바이스에 맞춘 터치 영역 크기

@@ -24,7 +24,7 @@ export default class BootScene extends Phaser.Scene {
 
     // Tile atlas (3x2 grid, 6 colors)
     // JSON Atlas 파일로 타일 이미지 로드
-    this.load.atlas("gearTiles", "assets/tiles3.png", "assets/tiles3.json");
+    this.load.atlas("iceTiles", "assets/tiles3.png", "assets/tiles3.json");
     // this.load.audio('crack', '/assets/crack.mp3');
   }
 

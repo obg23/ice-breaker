@@ -4,14 +4,18 @@
  */
 
 /**
- * Axial 좌표를 픽셀 좌표로 변환
+ * Axial 좌표를 픽셀 좌표로 변환 (flat-top 육각형)
+ * @param {number} q - 축 q 좌표
+ * @param {number} r - 축 r 좌표
+/**
+ * Axial 좌표를 픽셀 좌표로 변환 (pointy-top 육각형)
  * @param {number} q - 축 q 좌표
  * @param {number} r - 축 r 좌표
  * @param {number} size - 육각형 크기
- * @param {number} spacing - 타일 간격 배율(1보다 크면 간격이 넓어짐)
+ * @param {number} spacing - 타일 간격 배율 (기본값 1.0: 빈틈 없음)
  * @returns {{x: number, y: number}} 픽셀 좌표
  */
-export function axialToPixel(q, r, size, spacing = 1.01) {
+export function axialToPixel(q, r, size, spacing = 1.0) {
   const scaled = size * spacing;
   const x = scaled * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
   const y = scaled * ((3 / 2) * r);
