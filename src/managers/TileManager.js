@@ -30,7 +30,7 @@ export default class TileManager {
   }
 
   // 육각형 그리드 생성
-  createHexGrid() {
+  createHexGrid(onClickHandler) {
     this.initializeGrid();
 
     for (let q = -this.gridRadius; q <= this.gridRadius; q++) {
@@ -38,13 +38,13 @@ export default class TileManager {
       const r2 = Math.min(this.gridRadius, -q + this.gridRadius);
 
       for (let r = r1; r <= r2; r++) {
-        this.createTile(q, r);
+        this.createTile(q, r, onClickHandler);
       }
     }
   }
 
   // 단일 육각 타일 생성
-  createTile(q, r) {
+  createTile(q, r, onClickHandler) {
     const pos = axialToPixel(q, r, this.tileSize);
     const { x, y } = pos;
 
@@ -87,9 +87,13 @@ export default class TileManager {
     };
     this.updateTileDepth(tileData);
 
-    // 터치/클릭 이벤트
+    // 터치/클릭 이벤트 - 콜백으로 받은 핸들러 사용
     container.setSize(this.getTouchAreaSize(), this.getTouchAreaSize());
     container.setInteractive();
+
+    if (onClickHandler) {
+      container.on("pointerdown", () => onClickHandler(tileData));
+    }
 
     // Map에 저장
     this.tiles.set(`${q},${r}`, tileData);
@@ -194,7 +198,7 @@ export default class TileManager {
   }
 
   // 매칭 후 타일 재생성
-  updateBoardStateAfterMatches(onComplete) {
+  updateBoardStateAfterMatches(onClickHandler, onComplete) {
     this.scene.time.delayedCall(500, () => {
       const emptyPositions = [];
 
@@ -209,16 +213,20 @@ export default class TileManager {
         }
       }
 
+      const createdTiles = [];
       emptyPositions.forEach(({ q, r }) => {
         const oldTile = this.tiles.get(`${q},${r}`);
         if (oldTile) {
           this.tiles.delete(`${q},${r}`);
         }
-        this.createTile(q, r);
+        const newTile = this.createTile(q, r, onClickHandler);
+        if (newTile) {
+          createdTiles.push(newTile);
+        }
       });
 
       if (onComplete) {
-        onComplete();
+        onComplete(createdTiles);
       }
     });
   }
