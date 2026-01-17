@@ -29,6 +29,9 @@ export default class BootScene extends Phaser.Scene {
     this.load.image("tile_3", "assets/tiles/tile_4.png");
     this.load.image("tile_4", "assets/tiles/tile_5.png");
     this.load.image("tile_5", "assets/tiles/tile_6.png");
+
+    // 파티클 이미지 로드
+    this.load.image("particle", "assets/tiles/particle.png");
     // this.load.audio('crack', '/assets/crack.mp3');
   }
 

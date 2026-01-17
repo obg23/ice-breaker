@@ -1,0 +1,354 @@
+import Phaser from "phaser";
+import TileManager from "../managers/TileManager.js";
+import MatchManager from "../managers/MatchManager.js";
+import ScoreManager from "../managers/ScoreManager.js";
+import UIManager from "../managers/UIManager.js";
+
+const PADDING = 16;
+const QUEST_TARGET_PER_COLOR = 30;
+
+export default class GameScene extends Phaser.Scene {
+  constructor() {
+    super({ key: "GameScene" });
+  }
+
+  init() {
+    // 게임 상태 초기화
+    this.isGameOver = false;
+    this.isInputBlocked = false;
+
+    // HP 값과 실제 타일 색 순서를 맞춘 정의
+    this.colorDefinitions = [
+      { id: 1, label: "보라", color: 0x8338ec },
+      { id: 2, label: "회색", color: 0x8c8c8c },
+      { id: 3, label: "초록", color: 0x00b140 },
+      { id: 4, label: "파랑", color: 0x3a86ff },
+      { id: 5, label: "노랑", color: 0xffbe0b },
+      { id: 6, label: "분홍", color: 0xff006e },
+    ];
+
+    this.questRemaining = {};
+    this.colorDefinitions.forEach((def) => {
+      this.questRemaining[def.id] = QUEST_TARGET_PER_COLOR;
+    });
+
+    // 게임 설정 (화면 크기 기반)
+    this.updateLayoutConfig(this.scale.gameSize);
+  }
+
+  create() {
+    const { width, height } = this.scale.gameSize;
+
+    // 배경
+    this.background = this.add
+      .rectangle(0, 0, width, height, 0x1a1a2e)
+      .setOrigin(0);
+
+    // 매니저 초기화
+    this.uiManager = new UIManager(this, this.colorDefinitions);
+    this.scoreManager = new ScoreManager(this);
+    this.matchManager = new MatchManager(this);
+    this.tileManager = new TileManager(
+      this,
+      this.gridRadius,
+      this.tileSize,
+      this.colorDefinitions
+    );
+
+    // 게임 오버 콜백 설정
+    this.scoreManager.setGameOverCallback(() => this.endGame(false));
+
+    // UI 생성
+    this.uiManager.createUI();
+    // this.uiManager.createQuestUIElements(this.questRemaining); // 퀘스트 UI 숨김
+
+    // 육각형 그리드 생성 - 콜백 전달
+    this.tileManager.createHexGrid(this.onTileClick.bind(this));
+
+    // 리사이즈 핸들링
+    this.onResize(this.scale.gameSize);
+    this.scale.on("resize", this.onResize, this);
+    this.events.on("shutdown", this.onShutdown, this);
+
+    // 타이머 시작
+    this.scoreManager.startTimer();
+  }
+
+  // 타일 클릭 핸들러
+  async onTileClick(tile) {
+    if (this.isGameOver || tile.isBroken || this.isInputBlocked) return;
+
+    const rotationTargets = this.tileManager.getRotationTargets(tile);
+    if (!rotationTargets) return;
+
+    this.isInputBlocked = true;
+
+    try {
+      // 회전 애니메이션 실행
+      await this.tileManager.playRotationAnimation(rotationTargets);
+
+      // 회전 상태 적용
+      this.tileManager.applyRotationState(rotationTargets);
+
+      // 매칭 검사
+      const clusters = this.matchManager.findMatchingClusters(
+        this.tileManager.getTiles(),
+        rotationTargets
+      );
+
+      if (clusters.length > 0) {
+        // 콤보 증가
+        this.scoreManager.incrementCombo();
+        const comboMultiplier = this.scoreManager.getComboMultiplier();
+
+        // 시간 보너스 계산
+        const timeBonus = this.matchManager.calculateTimeBonus(
+          clusters,
+          comboMultiplier
+        );
+        if (timeBonus > 0) {
+          this.scoreManager.addTime(timeBonus);
+          this.playTimeBonusFeedback(timeBonus);
+        }
+
+        // 점수 계산
+        const totalDestroyed = this.matchManager.getTotalDestroyedCount(clusters);
+        const baseScore = totalDestroyed * 100;
+        this.scoreManager.addScore(baseScore);
+
+        // 타일 파괴
+        clusters.forEach((cluster) => {
+          cluster.forEach((t) => {
+            this.tileManager.breakTile(t);
+            this.applyQuestProgress(t);
+          });
+        });
+
+        // UI 업데이트
+        this.uiManager.updateScore(this.scoreManager.getScore());
+        this.uiManager.updateCombo(this.scoreManager.getCombo());
+
+        // 보드 상태 업데이트 (새 타일 생성 및 연쇄 반응 체크)
+        await this.updateBoardStateAfterMatches();
+      }
+    } finally {
+      this.isInputBlocked = false;
+    }
+  }
+
+  // 매칭 후 보드 업데이트 및 연쇄 반응
+  async updateBoardStateAfterMatches() {
+    return new Promise((resolve) => {
+      this.tileManager.updateBoardStateAfterMatches(
+        this.onTileClick.bind(this),
+        (createdTiles) => {
+          // 새로 생성된 타일로 매칭 체크
+          const clusters = this.matchManager.findMatchingClusters(
+            this.tileManager.getTiles(),
+            createdTiles
+          );
+
+          if (clusters.length > 0) {
+            // 연쇄 반응 처리
+            this.scoreManager.incrementCombo();
+            const comboMultiplier = this.scoreManager.getComboMultiplier();
+
+            const timeBonus = this.matchManager.calculateTimeBonus(
+              clusters,
+              comboMultiplier
+            );
+            if (timeBonus > 0) {
+              this.scoreManager.addTime(timeBonus);
+              this.playTimeBonusFeedback(timeBonus);
+            }
+
+            const totalDestroyed = this.matchManager.getTotalDestroyedCount(clusters);
+            const baseScore = totalDestroyed * 100;
+            this.scoreManager.addScore(baseScore);
+
+            clusters.forEach((cluster) => {
+              cluster.forEach((t) => {
+                this.tileManager.breakTile(t);
+                this.applyQuestProgress(t);
+              });
+            });
+
+            this.uiManager.updateScore(this.scoreManager.getScore());
+            this.uiManager.updateCombo(this.scoreManager.getCombo());
+
+            // 재귀적으로 다시 체크
+            this.updateBoardStateAfterMatches().then(resolve);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  }
+
+  // 퀘스트 진행 상황 업데이트
+  applyQuestProgress(tile) {
+    if (!tile) return;
+    const colorId = tile.maxHp;
+    if (this.questRemaining[colorId] === undefined) return;
+
+    this.questRemaining[colorId] = Math.max(
+      0,
+      (this.questRemaining[colorId] ?? QUEST_TARGET_PER_COLOR) - 1
+    );
+    this.uiManager.updateQuestText(colorId, this.questRemaining);
+  }
+
+  // 시간 보너스 피드백 애니메이션
+  playTimeBonusFeedback(addSeconds) {
+    const timeText = this.uiManager.timeText;
+    if (!timeText) return;
+
+    timeText.setScale(1);
+    this.tweens.add({
+      targets: timeText,
+      scale: 1.15,
+      duration: 100,
+      yoyo: true,
+      ease: "Sine.easeOut",
+    });
+
+    const gainText = this.add
+      .text(
+        timeText.x + 36,
+        timeText.y + 4,
+        `+${addSeconds.toFixed(1)}s`,
+        {
+          fontSize: "18px",
+          fill: "#00ff99",
+          fontStyle: "bold",
+        }
+      )
+      .setOrigin(0, 0.5);
+
+    this.tweens.add({
+      targets: gainText,
+      y: timeText.y - 18,
+      alpha: 0,
+      duration: 600,
+      ease: "Sine.easeOut",
+      onComplete: () => gainText.destroy(),
+    });
+  }
+
+  // 화면 크기 변경 시 UI/그리드 재배치
+  onResize(gameSize) {
+    const { width, height } = gameSize;
+
+    this.updateLayoutConfig(gameSize);
+
+    if (this.background) {
+      this.background.setSize(width, height);
+    }
+
+    // UI 매니저 리사이즈
+    this.uiManager?.onResize(gameSize);
+
+    // 타일 매니저 레이아웃 업데이트
+    if (this.tileManager) {
+      this.tileManager.updateLayout(this.gridRadius, this.tileSize);
+
+      const uiTop = this.uiManager.questBarHeight || 60;
+      const statsY = uiTop + PADDING + 6;
+      const gridCenterX = width / 2;
+      const gridCenterY = statsY + 40 + (height - statsY - 40) / 2;
+
+      const gridContainer = this.tileManager.getGridContainer();
+      if (gridContainer) {
+        gridContainer.setPosition(gridCenterX, gridCenterY);
+
+        // 타일들의 크기와 위치 업데이트
+        const tiles = this.tileManager.getTiles();
+        tiles.forEach((tile) => {
+          tile.sprite?.setDisplaySize(
+            this.tileManager.getTileDisplaySize(),
+            this.tileManager.getTileDisplaySize()
+          );
+          tile.positionText?.setFontSize(this.tileManager.getHpFontSize());
+          tile.container?.setSize(
+            this.tileManager.getTouchAreaSize(),
+            this.tileManager.getTouchAreaSize()
+          );
+          this.tileManager.updateTileDepth(tile);
+        });
+
+        // 그리드 컨테이너 스케일 조정
+        const bounds = gridContainer.getBounds();
+        const availableW = width - PADDING * 2;
+        const availableH = height - statsY - 40 - PADDING * 2;
+        const scale = Math.min(
+          availableW / bounds.width,
+          availableH / bounds.height,
+          1
+        );
+        gridContainer.setScale(scale);
+      }
+    }
+  }
+
+  // 씬 종료 시 리스너 정리
+  onShutdown() {
+    this.scale.off("resize", this.onResize, this);
+    this.scoreManager?.destroy();
+    this.tileManager?.destroy();
+    this.matchManager?.destroy();
+    this.uiManager?.destroy();
+  }
+
+  // 게임 종료
+  endGame(isWin) {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
+    this.scoreManager?.stopTimer();
+
+    const resultData = {
+      score: this.scoreManager.getScore(),
+    };
+
+    this.time.delayedCall(500, () => {
+      this.scene.start("ResultScene", resultData);
+    });
+  }
+
+  // 화면 크기에 따라 타일 크기/그리드 반경 결정
+  updateLayoutConfig(gameSize) {
+    const { width } = gameSize;
+    let tileSize;
+    let gridRadius;
+
+    if (width <= 360) {
+      tileSize = 36;
+      gridRadius = 3;
+    } else if (width <= 480) {
+      tileSize = 42;
+      gridRadius = 3;
+    } else if (width <= 720) {
+      tileSize = 51;
+      gridRadius = 4;
+    } else {
+      tileSize = 60;
+      gridRadius = 4;
+    }
+
+    // 기존 로직 유지: TileManager가 TURN_FACTOR를 적용하므로 여기서는 기본 계산만
+    this.tileDisplaySize = tileSize * 2;
+    this.tileSize = this.tileDisplaySize / Math.sqrt(3);
+    if (!this.gridRadius) {
+      this.gridRadius = gridRadius;
+    }
+  }
+
+  // update 루프에서 UI 업데이트
+  update() {
+    if (this.isGameOver) return;
+
+    // 시간 UI 업데이트
+    this.uiManager?.updateTime(this.scoreManager.getTimeLeft());
+  }
+}

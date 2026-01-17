@@ -101,20 +101,10 @@ export default class TileManager {
   }
 
   // 타일 파괴
-  breakTile(tile, particleManager) {
+  breakTile(tile) {
     if (tile.isBroken) return;
 
     tile.isBroken = true;
-
-    // 타일의 월드 좌표 가져오기
-    const worldX = tile.container.x + this.gridContainer.x;
-    const worldY = tile.container.y + this.gridContainer.y;
-
-    // 타일 색상으로 파티클 효과 생성
-    const colorDef = this.colorDefinitions.find(def => def.id === tile.maxHp);
-    if (colorDef && particleManager) {
-      particleManager.createEffect(worldX, worldY, colorDef.color);
-    }
 
     // 파괴 애니메이션
     this.scene.tweens.add({

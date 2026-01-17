@@ -1,11 +1,13 @@
 import Phaser from "phaser";
-import { axialToPixel, getNeighbors } from "../utils/hexUtils.js";
+import { axialToPixel } from "../utils/hexUtils.js";
+import * as MatchLogic from "../game/matchLogic.js";
+import * as ScoreSystem from "../game/scoreSystem.js";
+import * as TileOps from "../game/tileOperations.js";
 
 const TURN_FACTOR = 0.55;
 const DEFAULT_UI_TOP = 60;
 const PADDING = 16;
 const QUEST_TARGET_PER_COLOR = 30;
-const MIN_MATCH_COUNT = 5;
 
 export default class GameScene extends Phaser.Scene {
   // 씬 키 등록
@@ -62,9 +64,6 @@ export default class GameScene extends Phaser.Scene {
       .rectangle(0, 0, width, height, 0x1a1a2e)
       .setOrigin(0);
 
-    // 파티클용 텍스처 생성 (작은 원)
-    this.createParticleTexture();
-
     // UI 생성
     this.createUI();
 
@@ -78,34 +77,6 @@ export default class GameScene extends Phaser.Scene {
 
     // 턴 초기화
     this.startTimer();
-  }
-
-  // 파티클용 텍스처 생성
-  createParticleTexture() {
-    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
-    graphics.fillStyle(0xffffff);
-    graphics.fillCircle(8, 8, 8);
-    graphics.generateTexture('particle', 16, 16);
-    graphics.destroy();
-  }
-
-  // 파티클 효과 생성
-  createParticleEffect(x, y, color) {
-    const particles = this.add.particles(x, y, 'particle', {
-      speed: { min: 100, max: 300 },
-      angle: { min: 0, max: 360 },
-      scale: { start: 0.6, end: 0 },
-      alpha: { start: 1, end: 0 },
-      lifespan: 600,
-      quantity: 15,
-      blendMode: 'ADD',
-      tint: color,
-    });
-
-    // 파티클 이펙트 후 자동 제거
-    this.time.delayedCall(700, () => {
-      particles.destroy();
-    });
   }
 
   // 점수/턴/콤보 텍스트 UI 생성
@@ -342,29 +313,12 @@ export default class GameScene extends Phaser.Scene {
 
   // 클릭된 타일과 인접 두 개를 회전 대상으로 선택
   getRotationTargets(centerTile) {
-    if (!centerTile || centerTile.isBroken) return null;
-
-    const neighbors = getNeighbors(centerTile.q, centerTile.r)
-      .map(({ q, r }) => this.tiles.get(`${q},${r}`))
-      .filter((tile) => tile && !tile.isBroken);
-
-    if (neighbors.length < 2) {
-      return null;
-    }
-
-    return [centerTile, neighbors[0], neighbors[1]];
+    return MatchLogic.getRotationTargets(centerTile, this.tiles);
   }
 
   // 회전 애니메이션 실행 후 좌표 스왑 적용
   playRotationAnimation(rotationTargets) {
-    const nextPositions = rotationTargets.map((_, index) => {
-      const sourceIndex = (index + 1) % rotationTargets.length;
-      const targetTile = rotationTargets[sourceIndex];
-      return {
-        position: targetTile.relativePosition,
-        qr: { q: targetTile.q, r: targetTile.r },
-      };
-    });
+    const nextPositions = MatchLogic.calculateRotationPositions(rotationTargets);
 
     const movementTweens = rotationTargets.map(
       (tile, index) =>
@@ -405,21 +359,16 @@ export default class GameScene extends Phaser.Scene {
 
   // 회전 결과를 타일 좌표/맵에 반영
   applyRotationState(rotationTargets, nextPositions) {
-    const updates = rotationTargets.map((tile, index) => ({
-      tile,
-      oldKey: `${tile.q},${tile.r}`,
-      next: nextPositions[index],
-    }));
+    const updates = TileOps.createRotationUpdates(rotationTargets, nextPositions);
 
+    // 기존 키 삭제
     updates.forEach(({ oldKey }) => {
       this.tiles.delete(oldKey);
     });
 
+    // 타일 데이터 업데이트
     updates.forEach(({ tile, next }) => {
-      tile.q = next.qr.q;
-      tile.r = next.qr.r;
-      tile.relativePosition = next.position;
-      tile.positionText.setText(`${tile.q},${tile.r}`);
+      TileOps.updateTileData(tile, next, this.tileSize);
       tile.container.setPosition(next.position.x, next.position.y);
       this.updateTileDepth(tile);
       this.tiles.set(`${tile.q},${tile.r}`, tile);
@@ -432,16 +381,6 @@ export default class GameScene extends Phaser.Scene {
 
     tile.isBroken = true;
     this.applyQuestProgress(tile);
-
-    // 타일의 월드 좌표 가져오기
-    const worldX = tile.container.x + this.gridContainer.x;
-    const worldY = tile.container.y + this.gridContainer.y;
-
-    // 타일 색상으로 파티클 효과 생성
-    const colorDef = this.colorDefinitions.find(def => def.id === tile.maxHp);
-    if (colorDef) {
-      this.createParticleEffect(worldX, worldY, colorDef.color);
-    }
 
     // 파괴 애니메이션
     this.tweens.add({
@@ -460,48 +399,7 @@ export default class GameScene extends Phaser.Scene {
 
   // 회전으로 영향 받은 타일부터 시작해 전체 보드에서 동일 HP 3개 이상 클러스터 탐색
   findMatchingClusters(pivotTiles = []) {
-    const visited = new Set();
-    const clusters = [];
-
-    // 회전된 타일을 시작점으로 삼고, 동일 HP가 이어지는 한 전체 맵을 따라간다
-    const seeds =
-      pivotTiles.length > 0
-        ? pivotTiles.filter((t) => t && !t.isBroken)
-        : Array.from(this.tiles.values()).filter((t) => !t.isBroken);
-
-    seeds.forEach((tile) => {
-      const startKey = `${tile.q},${tile.r}`;
-      if (visited.has(startKey)) return;
-
-      const targetHp = tile.hp;
-      const cluster = [];
-      const stack = [tile];
-
-      while (stack.length > 0) {
-        const current = stack.pop();
-        const currentKey = `${current.q},${current.r}`;
-
-        if (visited.has(currentKey)) continue;
-        if (current.isBroken || current.hp !== targetHp) continue;
-
-        visited.add(currentKey);
-        cluster.push(current);
-
-        getNeighbors(current.q, current.r).forEach(({ q, r }) => {
-          const neighbor = this.tiles.get(`${q},${r}`);
-          if (!neighbor) return;
-          if (!visited.has(`${neighbor.q},${neighbor.r}`)) {
-            stack.push(neighbor);
-          }
-        });
-      }
-
-      if (cluster.length >= MIN_MATCH_COUNT) {
-        clusters.push(cluster);
-      }
-    });
-
-    return clusters;
+    return MatchLogic.findMatchingClusters(this.tiles, pivotTiles);
   }
 
   // 찾은 클러스터를 순서대로 파괴
@@ -509,47 +407,37 @@ export default class GameScene extends Phaser.Scene {
     if (!clusters || clusters.length === 0) return;
 
     const now = this.time.now;
-    this.updateComboOnMatch(now);
-    const comboMultiplier = this.getComboMultiplier();
-    let totalDestroyed = 0;
-    let baseSeconds = 0;
+    this.combo = ScoreSystem.updateCombo(
+      this.combo,
+      this.lastMatchAt,
+      now,
+      this.comboWindowMs,
+    );
+    this.lastMatchAt = now;
+    this.updateComboText();
+
+    const comboMultiplier = ScoreSystem.getComboMultiplier(this.combo);
+    const totalDestroyed = ScoreSystem.getTotalDestroyedCount(clusters);
 
     clusters.forEach((cluster, clusterIndex) => {
-      totalDestroyed += cluster.length;
-      if (cluster.length >= 4) {
-        baseSeconds += 0.8;
-      } else if (cluster.length === 3) {
-        baseSeconds += 0.5;
-      } else if (cluster.length === 2) {
-        baseSeconds += 0.2;
-      }
-
       cluster.forEach((tile) => {
         this.breakTile(tile, clusterIndex > 0);
       });
     });
 
     if (totalDestroyed > 0) {
-      const earnedScore = Math.round(totalDestroyed * 100 * comboMultiplier);
+      const earnedScore = ScoreSystem.calculateScore(
+        totalDestroyed,
+        comboMultiplier,
+      );
       this.score += earnedScore;
       this.scoreText.setText(`점수: ${this.score}`);
     }
 
-    const addSeconds = baseSeconds * comboMultiplier;
-    if (addSeconds > 0) {
-      this.addTimeBonus(addSeconds);
+    const timeBonus = ScoreSystem.calculateTimeBonus(clusters, comboMultiplier);
+    if (timeBonus > 0) {
+      this.addTimeBonus(timeBonus);
     }
-  }
-
-  // 콤보 갱신 (매칭 확정 시에만 처리)
-  updateComboOnMatch(now) {
-    if (now - this.lastMatchAt <= this.comboWindowMs) {
-      this.combo += 1;
-    } else {
-      this.combo = 1;
-    }
-    this.lastMatchAt = now;
-    this.updateComboText();
   }
 
   // 콤보 텍스트 갱신
@@ -559,13 +447,6 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.comboText.setText("");
     }
-  }
-
-  // 콤보 배수 계산
-  getComboMultiplier() {
-    if (this.combo >= 6) return 1.4;
-    if (this.combo >= 3) return 1.2;
-    return 1.0;
   }
 
   // 파괴된 타일을 맵에서 제거하고 일정 시간 후 새 타일 생성
@@ -895,9 +776,7 @@ export default class GameScene extends Phaser.Scene {
   // 타일의 z-순서를 일관되게 맞춰 겹침을 방지
   updateTileDepth(tile) {
     if (!tile || !tile.container) return;
-    // r을 우선, q를 보조로 깊이를 정렬해 아래줄이 위로 덮이지 않도록 고정
-    const depth =
-      (tile.r + this.gridRadius * 2) * 1000 + (tile.q + this.gridRadius * 2);
+    const depth = TileOps.calculateTileDepth(tile.q, tile.r, this.gridRadius);
     tile.container.setDepth(depth);
   }
 }
