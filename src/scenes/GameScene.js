@@ -821,7 +821,8 @@ export default class GameScene extends Phaser.Scene {
       gridRadius = 4;
     }
 
-    this.tileSize = tileSize;
+    this.tileDisplaySize = tileSize * 2;
+    this.tileSize = this.tileDisplaySize / Math.sqrt(3);
     if (!this.gridRadius) {
       this.gridRadius = gridRadius;
     }
@@ -829,21 +830,24 @@ export default class GameScene extends Phaser.Scene {
 
   // 타일 크기와 터치 여부에 따른 HP 폰트 크기
   getHpFontSize() {
-    if (this.tileSize <= 24) return 14;
-    if (this.tileSize <= 28) return this.isTouch ? 16 : 18;
-    if (this.tileSize <= 34) return this.isTouch ? 18 : 20;
+    const displaySize = this.tileDisplaySize;
+    if (displaySize <= 48) return 14;
+    if (displaySize <= 56) return this.isTouch ? 16 : 18;
+    if (displaySize <= 68) return this.isTouch ? 18 : 20;
     return this.isTouch ? 20 : 22;
   }
 
   // 기어 스프라이트의 표시 지름
   getTileDisplaySize() {
-    return this.tileSize * 2.0;
+    return this.tileDisplaySize;
   }
 
   // 터치 디바이스에 맞춘 터치 영역 크기
   getTouchAreaSize() {
     // 클릭/터치 영역을 줄여서 겹침 클릭을 방지
-    return this.isTouch ? this.tileSize * 1.8 : this.tileSize * 1.4;
+    return this.isTouch
+      ? this.tileDisplaySize * 0.9
+      : this.tileDisplaySize * 0.7;
   }
 
   // 타일의 z-순서를 일관되게 맞춰 겹침을 방지
