@@ -40,20 +40,10 @@ const config = {
 // eslint-disable-next-line no-unused-vars
 const game = new Phaser.Game(config);
 
-const rotateOverlay = document.getElementById('rotate-overlay');
-
-const updateOrientationOverlay = () => {
-  if (!rotateOverlay) return;
-  const isLandscape = window.innerWidth > window.innerHeight;
-  rotateOverlay.style.display = isLandscape ? 'flex' : 'none';
-};
-
 const handleResize = () => {
   game.scale.resize(BASE_WIDTH, BASE_HEIGHT);
   game.scale.refresh();
-  updateOrientationOverlay();
 };
 
 window.addEventListener('resize', handleResize);
 window.addEventListener('orientationchange', handleResize);
-updateOrientationOverlay();

@@ -32,6 +32,7 @@ export default class GameScene extends Phaser.Scene {
     this.timeLeft = 30.0;
     this.timeMax = 90.0;
     this.timeEvent = null;
+
     // HP 값과 실제 타일 색 순서를 맞춘 정의 (frame = hp - 1)
     this.colorDefinitions = [
       { id: 1, label: "보라", color: 0x8338ec },
@@ -44,11 +45,6 @@ export default class GameScene extends Phaser.Scene {
     this.questRemaining = {};
     this.colorDefinitions.forEach((def) => {
       this.questRemaining[def.id] = QUEST_TARGET_PER_COLOR;
-    });
-
-    this.load.spritesheet("gearTiles", "assets/gear-tile.png", {
-      frameWidth: 128,
-      frameHeight: 128,
     });
 
     this.isTouch = this.sys.game.device.input.touch;
@@ -240,10 +236,10 @@ export default class GameScene extends Phaser.Scene {
 
     // 랜덤 HP (1~6)
     const maxHp = Phaser.Math.Between(1, 6);
-    const frame = maxHp - 1; // gearTiles spritesheet frame index
+    const frameName = `tile_${maxHp - 1}`; // atlas frame name
 
     // 육각 기어 스프라이트 생성
-    const sprite = this.add.sprite(0, 0, "gearTiles", frame);
+    const sprite = this.add.sprite(0, 0, "gearTiles", frameName);
     sprite.setOrigin(0.5);
     sprite.setDisplaySize(this.getTileDisplaySize(), this.getTileDisplaySize());
 
@@ -812,16 +808,16 @@ export default class GameScene extends Phaser.Scene {
     let gridRadius;
 
     if (width <= 360) {
-      tileSize = 24;
+      tileSize = 36;
       gridRadius = 3;
     } else if (width <= 480) {
-      tileSize = 28;
+      tileSize = 42;
       gridRadius = 3;
     } else if (width <= 720) {
-      tileSize = 34;
+      tileSize = 51;
       gridRadius = 4;
     } else {
-      tileSize = 40;
+      tileSize = 60;
       gridRadius = 4;
     }
 

@@ -22,13 +22,9 @@ export default class BootScene extends Phaser.Scene {
       this.loadingText?.destroy();
     });
 
-    // Tile sprite sheet (3x2 grid, 6 colors)
-    // 원본 이미지가 1024x1024이고 3열x2행으로 배치되어 있으므로
-    // 프레임 크기를 341x512로 잘라 6프레임을 얻는다.
-    this.load.spritesheet("gearTiles", "assets/gear-tile.png", {
-      frameWidth: 341,
-      frameHeight: 512,
-    });
+    // Tile atlas (3x2 grid, 6 colors)
+    // JSON Atlas 파일로 타일 이미지 로드
+    this.load.atlas("gearTiles", "assets/tiles3.png", "assets/tiles3.json");
     // this.load.audio('crack', '/assets/crack.mp3');
   }
 

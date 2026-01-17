@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
@@ -8,7 +9,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>얼음깨기 (Ice Breaker)</title>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -42,25 +44,12 @@
     canvas {
       display: block;
     }
-
-    #rotate-overlay {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 24px;
-      background: rgba(0, 0, 0, 0.85);
-      color: #ffffff;
-      font-size: 1.25rem;
-      z-index: 100;
-    }
   </style>
 </head>
+
 <body>
   <div id="game-container"></div>
-  <div id="rotate-overlay">세로 모드에서 플레이해 주세요.</div>
   <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>

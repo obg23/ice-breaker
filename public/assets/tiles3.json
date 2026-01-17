@@ -1,0 +1,121 @@
+{
+    "frames": {
+        "tile_0": {
+            "frame": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            },
+            "sourceSize": {
+                "w": 341,
+                "h": 512
+            },
+            "spriteSourceSize": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            }
+        },
+        "tile_1": {
+            "frame": {
+                "x": 341,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            },
+            "sourceSize": {
+                "w": 341,
+                "h": 512
+            },
+            "spriteSourceSize": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            }
+        },
+        "tile_2": {
+            "frame": {
+                "x": 682,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            },
+            "sourceSize": {
+                "w": 341,
+                "h": 512
+            },
+            "spriteSourceSize": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            }
+        },
+        "tile_3": {
+            "frame": {
+                "x": 0,
+                "y": 512,
+                "w": 341,
+                "h": 512
+            },
+            "sourceSize": {
+                "w": 341,
+                "h": 512
+            },
+            "spriteSourceSize": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            }
+        },
+        "tile_4": {
+            "frame": {
+                "x": 341,
+                "y": 512,
+                "w": 341,
+                "h": 512
+            },
+            "sourceSize": {
+                "w": 341,
+                "h": 512
+            },
+            "spriteSourceSize": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            }
+        },
+        "tile_5": {
+            "frame": {
+                "x": 682,
+                "y": 512,
+                "w": 341,
+                "h": 512
+            },
+            "sourceSize": {
+                "w": 341,
+                "h": 512
+            },
+            "spriteSourceSize": {
+                "x": 0,
+                "y": 0,
+                "w": 341,
+                "h": 512
+            }
+        }
+    },
+    "meta": {
+        "image": "tiles3.png",
+        "format": "RGBA8888",
+        "size": {
+            "w": 1024,
+            "h": 1024
+        },
+        "scale": 1
+    }
+}
