@@ -22,9 +22,13 @@ export default class BootScene extends Phaser.Scene {
       this.loadingText?.destroy();
     });
 
-    // Tile atlas (3x2 grid, 6 colors)
-    // JSON Atlas 파일로 타일 이미지 로드
-    this.load.atlas("iceTiles", "assets/tiles3.png", "assets/tiles3.json");
+    // 개별 타일 이미지 6개 로드
+    this.load.image("tile_0", "assets/tiles/tile_1.png");
+    this.load.image("tile_1", "assets/tiles/tile_2.png");
+    this.load.image("tile_2", "assets/tiles/tile_3.png");
+    this.load.image("tile_3", "assets/tiles/tile_4.png");
+    this.load.image("tile_4", "assets/tiles/tile_5.png");
+    this.load.image("tile_5", "assets/tiles/tile_6.png");
     // this.load.audio('crack', '/assets/crack.mp3');
   }
 
