@@ -52,7 +52,7 @@ export default class BootScene extends Phaser.Scene {
 
     if (!this.loadingText) {
       this.loadingText = this.add
-        .text(width / 2, height / 2 - 50, "濡쒕뵫 以?..", {
+        .text(width / 2, height / 2 - 50, "로딩중..", {
           fontSize: `${fontSize}px`,
           fill: "#ffffff",
         })
@@ -71,7 +71,7 @@ export default class BootScene extends Phaser.Scene {
       width / 2 - barWidth / 2,
       height / 2,
       barWidth,
-      barHeight
+      barHeight,
     );
 
     if (!this.progressBar) {
@@ -96,7 +96,7 @@ export default class BootScene extends Phaser.Scene {
       width / 2 - innerBarWidth / 2,
       height / 2 + 10,
       innerBarWidth * value,
-      innerBarHeight
+      innerBarHeight,
     );
   }
 
