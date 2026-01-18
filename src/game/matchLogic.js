@@ -89,3 +89,53 @@ export function calculateRotationPositions(rotationTargets) {
     };
   });
 }
+
+/**
+ * 특정 위치에 특정 HP 타일을 놓았을 때 형성되는 클러스터 크기 계산
+ * @param {Map} tiles - 현재 타일 맵
+ * @param {number} q - 타일 q 좌표
+ * @param {number} r - 타일 r 좌표
+ * @param {number} hp - 확인할 HP 값
+ * @returns {number} 클러스터 크기
+ */
+export function getClusterSizeIfPlaced(tiles, q, r, hp) {
+  const visited = new Set();
+  const stack = [{ q, r }];
+  let count = 0;
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const key = `${current.q},${current.r}`;
+
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    // 현재 위치가 새로 놓을 타일인 경우
+    if (current.q === q && current.r === r) {
+      count++;
+    } else {
+      // 기존 타일인 경우
+      const tile = tiles.get(key);
+      if (!tile || tile.isBroken || tile.hp !== hp) continue;
+      count++;
+    }
+
+    // 인접 타일 확인
+    getNeighbors(current.q, current.r).forEach((neighbor) => {
+      const neighborKey = `${neighbor.q},${neighbor.r}`;
+      if (visited.has(neighborKey)) return;
+
+      // 인접 타일이 같은 HP인지 확인
+      if (neighbor.q === q && neighbor.r === r) {
+        stack.push(neighbor);
+      } else {
+        const neighborTile = tiles.get(neighborKey);
+        if (neighborTile && !neighborTile.isBroken && neighborTile.hp === hp) {
+          stack.push(neighbor);
+        }
+      }
+    });
+  }
+
+  return count;
+}

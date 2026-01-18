@@ -9,6 +9,16 @@ const DEFAULT_UI_TOP = 60;
 const PADDING = 16;
 const QUEST_TARGET_PER_COLOR = 30;
 
+// UI 색상 테마
+const UI_COLORS = {
+  bg: 0x0f1923,
+  cardBg: 0x1a2634,
+  accent: 0x00d4ff,
+  textMuted: 0x6b7c8f,
+  warning: 0xff6b6b,
+  combo: 0xffd700,
+};
+
 export default class GameScene extends Phaser.Scene {
   // 씬 키 등록
   constructor() {
@@ -81,32 +91,80 @@ export default class GameScene extends Phaser.Scene {
 
   // 점수/턴/콤보 텍스트 UI 생성
   createUI() {
-    // 점수 표시
-    this.scoreText = this.add.text(0, 0, "점수: 0", {
-      fontSize: "24px",
+    const { width } = this.scale.gameSize;
+
+    // 최고 점수 불러오기
+    this.highScore = this.getHighScore();
+
+    // 상단 UI 배경 바
+    this.uiBarBg = this.add.rectangle(width / 2, 0, width, 80, UI_COLORS.cardBg, 0.9)
+      .setOrigin(0.5, 0)
+      .setDepth(100);
+
+    // 상단 액센트 라인
+    this.uiAccentLine = this.add.rectangle(width / 2, 80, width, 2, UI_COLORS.accent, 0.6)
+      .setOrigin(0.5, 1)
+      .setDepth(100);
+
+    // 점수 컨테이너 (왼쪽)
+    this.scoreLabelText = this.add.text(0, 0, "SCORE", {
+      fontSize: "11px",
+      fill: "#6b7c8f",
+      fontFamily: "Arial",
+    }).setDepth(101);
+
+    this.scoreText = this.add.text(0, 0, "0", {
+      fontSize: "28px",
+      fill: "#00d4ff",
+      fontStyle: "bold",
+      fontFamily: "Arial",
+    }).setDepth(101);
+
+    this.highScoreText = this.add.text(0, 0, `BEST ${this.highScore.toLocaleString()}`, {
+      fontSize: "10px",
+      fill: "#4a5568",
+      fontFamily: "Arial",
+    }).setDepth(101);
+
+    // 시간 컨테이너 (중앙)
+    this.timeLabelText = this.add.text(0, 0, "TIME", {
+      fontSize: "11px",
+      fill: "#6b7c8f",
+      fontFamily: "Arial",
+    }).setOrigin(0.5, 0).setDepth(101);
+
+    this.timeText = this.add.text(0, 0, "30.0", {
+      fontSize: "32px",
       fill: "#ffffff",
       fontStyle: "bold",
-    });
+      fontFamily: "Arial",
+    }).setOrigin(0.5, 0).setDepth(101);
 
-    // 시간 표시
-    this.timeText = this.add
-      .text(0, 0, "TIME: 30.0", {
-        fontSize: "24px",
-        fill: "#ffffff",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5, 0);
+    // 콤보 컨테이너 (오른쪽)
+    this.comboLabelText = this.add.text(0, 0, "COMBO", {
+      fontSize: "11px",
+      fill: "#6b7c8f",
+      fontFamily: "Arial",
+    }).setOrigin(1, 0).setDepth(101).setAlpha(0);
 
-    // 콤보 표시
-    this.comboText = this.add
-      .text(0, 0, "", {
-        fontSize: "28px",
-        fill: "#ffff00",
-        fontStyle: "bold",
-      })
-      .setOrigin(1, 0);
+    this.comboText = this.add.text(0, 0, "", {
+      fontSize: "28px",
+      fill: "#ffd700",
+      fontStyle: "bold",
+      fontFamily: "Arial",
+    }).setOrigin(1, 0).setDepth(101);
+  }
 
-    // this.createQuestUIElements(); // 퀘스트 UI 숨김
+  // localStorage에서 최고 점수 가져오기
+  getHighScore() {
+    const saved = localStorage.getItem('ice-breaker-top-scores');
+    if (!saved) return 0;
+    try {
+      const scores = JSON.parse(saved);
+      return scores[0] || 0;
+    } catch {
+      return 0;
+    }
   }
 
   createQuestUIElements() {
@@ -232,12 +290,18 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // 단일 육각 타일 생성 및 클릭 이벤트 연결
-  createIceTile(q, r) {
+  createIceTile(q, r, skipClusterCheck = false) {
     const pos = axialToPixel(q, r, this.tileSize);
     const { x, y } = pos;
 
-    // 랜덤 HP (1~6)
-    const maxHp = Phaser.Math.Between(1, 6);
+    // 클러스터 체크 없이 랜덤 HP 선택 (재생성 시)
+    let maxHp;
+    if (skipClusterCheck) {
+      maxHp = Phaser.Math.Between(1, 6);
+    } else {
+      // 초기 생성 시: 5개 이상 클러스터가 생기지 않는 HP 선택
+      maxHp = this.getSafeHp(q, r);
+    }
     const textureKey = `tile_${maxHp - 1}`; // 개별 이미지 키
 
     // 육각 타일 스프라이트 생성
@@ -318,6 +382,9 @@ export default class GameScene extends Phaser.Scene {
 
   // 회전 애니메이션 실행 후 좌표 스왑 적용
   playRotationAnimation(rotationTargets) {
+    // 회전 효과음 재생
+    this.sound.play("move");
+
     const nextPositions = MatchLogic.calculateRotationPositions(rotationTargets);
 
     const movementTweens = rotationTargets.map(
@@ -406,6 +473,9 @@ export default class GameScene extends Phaser.Scene {
   destroyMatchedTiles(clusters) {
     if (!clusters || clusters.length === 0) return;
 
+    // 파괴 효과음 재생
+    this.sound.play("destroy");
+
     const now = this.time.now;
     this.combo = ScoreSystem.updateCombo(
       this.combo,
@@ -431,7 +501,14 @@ export default class GameScene extends Phaser.Scene {
         comboMultiplier,
       );
       this.score += earnedScore;
-      this.scoreText.setText(`점수: ${this.score}`);
+      this.scoreText.setText(this.score.toLocaleString());
+
+      // 최고 점수 갱신 시 표시 업데이트
+      if (this.score > this.highScore) {
+        this.highScore = this.score;
+        this.highScoreText.setText(`BEST ${this.highScore.toLocaleString()}`);
+        this.highScoreText.setFill("#00d4ff");
+      }
     }
 
     const timeBonus = ScoreSystem.calculateTimeBonus(clusters, comboMultiplier);
@@ -443,8 +520,18 @@ export default class GameScene extends Phaser.Scene {
   // 콤보 텍스트 갱신
   updateComboText() {
     if (this.combo > 1) {
-      this.comboText.setText(`COMBO: x${this.combo}`);
+      this.comboLabelText?.setAlpha(1);
+      this.comboText.setText(`x${this.combo}`);
+
+      // 콤보 애니메이션
+      this.tweens.add({
+        targets: this.comboText,
+        scale: { from: 1.3, to: 1 },
+        duration: 150,
+        ease: "Back.easeOut",
+      });
     } else {
+      this.comboLabelText?.setAlpha(0);
       this.comboText.setText("");
     }
   }
@@ -468,7 +555,7 @@ export default class GameScene extends Phaser.Scene {
       this.time.delayedCall(500, () => {
         const createdTiles = [];
         brokenTiles.forEach(({ q, r }) => {
-          const tile = this.createIceTile(q, r);
+          const tile = this.createIceTile(q, r, true); // 재생성 시 클러스터 체크 스킵
           if (tile) {
             createdTiles.push(tile);
           }
@@ -487,8 +574,18 @@ export default class GameScene extends Phaser.Scene {
   // 화면 크기 변경 시 UI/그리드 재배치
   onResize(gameSize) {
     const { width, height } = gameSize;
-    const baseFontSize = width <= 360 ? 16 : this.isTouch ? 18 : 24;
-    const comboFontSize = baseFontSize + 6;
+    const isSmall = width <= 480;
+    const isVerySmall = width <= 360;
+
+    // 폰트 크기 계산
+    const labelSize = isVerySmall ? 9 : isSmall ? 10 : 11;
+    const scoreSize = isVerySmall ? 22 : isSmall ? 24 : 28;
+    const timeSize = isVerySmall ? 26 : isSmall ? 28 : 32;
+    const comboSize = isVerySmall ? 22 : isSmall ? 24 : 28;
+    const bestSize = isVerySmall ? 8 : isSmall ? 9 : 10;
+
+    // UI 바 높이
+    const uiBarHeight = isVerySmall ? 65 : isSmall ? 70 : 80;
 
     this.updateLayoutConfig(gameSize);
     this.layoutQuestUI(gameSize);
@@ -497,18 +594,28 @@ export default class GameScene extends Phaser.Scene {
       this.background.setSize(width, height);
     }
 
-    const statsY = (this.questBarHeight || DEFAULT_UI_TOP) + PADDING + 6;
+    // 상단 UI 바
+    this.uiBarBg?.setPosition(width / 2, 0).setSize(width, uiBarHeight);
+    this.uiAccentLine?.setPosition(width / 2, uiBarHeight).setSize(width, 2);
 
-    this.scoreText.setFontSize(baseFontSize);
-    this.scoreText.setPosition(PADDING, statsY);
+    // 점수 (왼쪽)
+    const leftX = PADDING;
+    const topY = isVerySmall ? 12 : 16;
 
-    this.timeText.setFontSize(baseFontSize);
-    this.timeText.setPosition(width / 2, statsY);
+    this.scoreLabelText?.setFontSize(labelSize).setPosition(leftX, topY);
+    this.scoreText?.setFontSize(scoreSize).setPosition(leftX, topY + labelSize + 2);
+    this.highScoreText?.setFontSize(bestSize).setPosition(leftX, topY + labelSize + scoreSize + 4);
 
-    this.comboText.setFontSize(comboFontSize);
-    this.comboText.setPosition(width - PADDING, statsY);
+    // 시간 (중앙)
+    this.timeLabelText?.setFontSize(labelSize).setPosition(width / 2, topY);
+    this.timeText?.setFontSize(timeSize).setPosition(width / 2, topY + labelSize + 2);
 
-    this.uiTop = statsY + baseFontSize + 12;
+    // 콤보 (오른쪽)
+    const rightX = width - PADDING;
+    this.comboLabelText?.setFontSize(labelSize).setPosition(rightX, topY);
+    this.comboText?.setFontSize(comboSize).setPosition(rightX, topY + labelSize + 2);
+
+    this.uiTop = uiBarHeight + 8;
 
     const gridCenterX = width / 2;
     const gridCenterY = this.uiTop + (height - this.uiTop) / 2;
@@ -681,7 +788,14 @@ export default class GameScene extends Phaser.Scene {
 
   updateTimeText() {
     if (!this.timeText) return;
-    this.timeText.setText(`TIME: ${this.timeLeft.toFixed(1)}`);
+    this.timeText.setText(this.timeLeft.toFixed(1));
+
+    // 시간 경고 (10초 이하일 때 빨간색)
+    if (this.timeLeft <= 10) {
+      this.timeText.setFill("#ff6b6b");
+    } else {
+      this.timeText.setFill("#ffffff");
+    }
   }
 
   addTimeBonus(addSeconds) {
@@ -771,6 +885,34 @@ export default class GameScene extends Phaser.Scene {
     return this.isTouch
       ? this.tileDisplaySize * 0.9
       : this.tileDisplaySize * 0.7;
+  }
+
+  // 5개 이상 클러스터가 생기지 않는 HP 값 선택
+  getSafeHp(q, r) {
+    const maxClusterSize = 4; // 4개까지만 허용
+    const allHps = [1, 2, 3, 4, 5, 6];
+
+    // 랜덤하게 섞어서 시도
+    const shuffled = Phaser.Utils.Array.Shuffle([...allHps]);
+
+    for (const hp of shuffled) {
+      const clusterSize = MatchLogic.getClusterSizeIfPlaced(this.tiles, q, r, hp);
+      if (clusterSize <= maxClusterSize) {
+        return hp;
+      }
+    }
+
+    // 모든 HP가 5개 이상 클러스터를 만든다면 가장 작은 클러스터를 만드는 HP 선택
+    let minSize = Infinity;
+    let bestHp = 1;
+    for (const hp of allHps) {
+      const clusterSize = MatchLogic.getClusterSizeIfPlaced(this.tiles, q, r, hp);
+      if (clusterSize < minSize) {
+        minSize = clusterSize;
+        bestHp = hp;
+      }
+    }
+    return bestHp;
   }
 
   // 타일의 z-순서를 일관되게 맞춰 겹침을 방지

@@ -32,7 +32,10 @@ export default class BootScene extends Phaser.Scene {
 
     // 파티클 이미지 로드
     this.load.image("particle", "assets/tiles/particle.png");
-    // this.load.audio('crack', '/assets/crack.mp3');
+
+    // 효과음 로드
+    this.load.audio("move", "assets/sounds/move.mp3");
+    this.load.audio("destroy", "assets/sounds/destroy.mp3");
   }
 
   create() {
