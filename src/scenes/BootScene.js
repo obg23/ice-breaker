@@ -53,11 +53,19 @@ export default class BootScene extends Phaser.Scene {
 
     this.loadingDimensions = { barWidth, barHeight, fontSize };
 
+    // 배경
+    if (!this.background) {
+      this.background = this.add.rectangle(0, 0, width, height, 0xF5E6D3).setOrigin(0);
+    } else {
+      this.background.setSize(width, height);
+    }
+
     if (!this.loadingText) {
       this.loadingText = this.add
         .text(width / 2, height / 2 - 50, "로딩중..", {
           fontSize: `${fontSize}px`,
-          fill: "#ffffff",
+          fill: "#2C2C2C",
+          fontStyle: "bold",
         })
         .setOrigin(0.5);
     } else {
@@ -69,12 +77,21 @@ export default class BootScene extends Phaser.Scene {
       this.progressBox = this.add.graphics();
     }
     this.progressBox.clear();
-    this.progressBox.fillStyle(0x222222, 0.8);
-    this.progressBox.fillRect(
+    this.progressBox.fillStyle(0xE8D5C4, 1);
+    this.progressBox.fillRoundedRect(
       width / 2 - barWidth / 2,
       height / 2,
       barWidth,
       barHeight,
+      10
+    );
+    this.progressBox.lineStyle(2, 0xD0BFA8, 0.5);
+    this.progressBox.strokeRoundedRect(
+      width / 2 - barWidth / 2,
+      height / 2,
+      barWidth,
+      barHeight,
+      10
     );
 
     if (!this.progressBar) {
@@ -92,14 +109,15 @@ export default class BootScene extends Phaser.Scene {
     const { barWidth, barHeight } = this.loadingDimensions;
 
     this.progressBar.clear();
-    this.progressBar.fillStyle(0x00ffff, 1);
+    this.progressBar.fillStyle(0xE75A7C, 1);
     const innerBarWidth = barWidth - 20;
     const innerBarHeight = barHeight - 20;
-    this.progressBar.fillRect(
+    this.progressBar.fillRoundedRect(
       width / 2 - innerBarWidth / 2,
       height / 2 + 10,
       innerBarWidth * value,
       innerBarHeight,
+      8
     );
   }
 
