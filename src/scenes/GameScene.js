@@ -712,7 +712,7 @@ export default class GameScene extends Phaser.Scene {
 
         // 배경
         this.gridBg.clear();
-        this.gridBg.fillStyle(UI_COLORS.cardBg, 1);
+        this.gridBg.fillStyle(UI_COLORS.bg, 1);
         this.gridBg.fillRoundedRect(bgX, bgY, bgWidth, bgHeight, radius);
         this.gridBg.lineStyle(3, UI_COLORS.accent, 0.3);
         this.gridBg.strokeRoundedRect(bgX, bgY, bgWidth, bgHeight, radius);
