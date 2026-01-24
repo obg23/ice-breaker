@@ -186,36 +186,38 @@ export default class ResultScene extends Phaser.Scene {
 
   createButton(width, height) {
     // 버튼 배경 (둥근 모서리)
-    this.buttonContainer = this.add.container(width / 2, height * 0.9).setSize(200, 50);
+    this.buttonContainer = this.add.container(width / 2, height * 0.9);
     this.buttonBg = this.add.graphics();
     this.buttonShadow = this.add.graphics();
 
     this.drawButton(false);
 
-    this.buttonContainer.add([this.buttonShadow, this.buttonBg]);
-    this.buttonContainer.setInteractive(
-      new Phaser.Geom.Rectangle(-100, -25, 200, 50),
-      Phaser.Geom.Rectangle.Contains
-    );
-
-    // 버튼 텍스트
-    this.restartButton = this.add.text(width / 2, height * 0.9, 'PLAY AGAIN', {
+    // 버튼 텍스트 생성 (컨테이너 내부 좌표 0, 0)
+    this.restartButton = this.add.text(0, 0, 'PLAY AGAIN', {
       fontSize: '20px',
       fill: '#ffffff',
       fontStyle: 'bold',
       fontFamily: 'Arial'
     }).setOrigin(0.5);
 
+    // 컨테이너에 모든 요소 추가
+    this.buttonContainer.add([this.buttonShadow, this.buttonBg, this.restartButton]);
+
+    // 컨테이너를 인터랙티브하게 설정
+    this.buttonContainer.setSize(200, 50);
+    this.buttonContainer.setInteractive(
+      new Phaser.Geom.Rectangle(-100, -25, 200, 50),
+      Phaser.Geom.Rectangle.Contains
+    );
+
     this.buttonContainer.on('pointerover', () => {
       this.drawButton(true);
       this.buttonContainer.setScale(1.05);
-      this.restartButton.setScale(1.05);
     });
 
     this.buttonContainer.on('pointerout', () => {
       this.drawButton(false);
       this.buttonContainer.setScale(1);
-      this.restartButton.setScale(1);
     });
 
     this.buttonContainer.on('pointerdown', () => {
@@ -358,7 +360,7 @@ export default class ResultScene extends Phaser.Scene {
     const buttonWidth = isSmall ? 160 : 200;
     const buttonHeight = isSmall ? 44 : 50;
     this.buttonContainer?.setPosition(width / 2, height * 0.9);
-    this.restartButton?.setFontSize(buttonSize).setPosition(width / 2, height * 0.9);
+    this.restartButton?.setFontSize(buttonSize);
   }
 
   onShutdown() {
