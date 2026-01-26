@@ -9,16 +9,18 @@ const DEFAULT_UI_TOP = 60;
 const PADDING = 16;
 const QUEST_TARGET_PER_COLOR = 30;
 
-// UI 색상 테마
+// UI 색상 테마 (다크 모드)
 const UI_COLORS = {
-  bg: 0xF5E6D3,        // 베이지 배경
-  cardBg: 0xFFFFFF,    // 흰색 카드
-  accent: 0xE8D5C4,    // 연한 베이지
-  textPrimary: 0x2C2C2C,  // 어두운 회색 텍스트
-  textMuted: 0x8B7355,    // 갈색 음영 텍스트
-  warning: 0xE74C3C,      // 빨간색 경고
-  combo: 0xFF6B9D,        // 분홍색 콤보
+  bg: 0x1a1a2e,           // 다크 네이비 배경
+  cardBg: 0x2d2d44,       // 어두운 카드 배경
+  slotBg: 0x3d3d5c,       // 빈 슬롯 배경
+  accent: 0x4a4a6a,       // 액센트 색상
+  textPrimary: 0xFFFFFF,  // 흰색 텍스트
+  textMuted: 0x9999aa,    // 연한 회색 텍스트
+  warning: 0xff6b6b,      // 빨간색 경고
+  combo: 0xFFD700,        // 골드 콤보
   shadow: 0x000000,       // 그림자
+  highlight: 0x00d4ff,    // 하이라이트
 };
 
 export default class GameScene extends Phaser.Scene {
@@ -48,13 +50,14 @@ export default class GameScene extends Phaser.Scene {
     this.timeEvent = null;
 
     // HP 값과 실제 타일 색 순서를 맞춘 정의 (frame = hp - 1)
+    // 밝고 선명한 색상 (이미지 참조)
     this.colorDefinitions = [
-      { id: 1, label: "보라", color: 0x5C4B8C },  // 부드러운 보라
-      { id: 2, label: "회색", color: 0xB8B5A8 },  // 베이지 회색
-      { id: 3, label: "초록", color: 0xA8C686 },  // 부드러운 연두
-      { id: 4, label: "파랑", color: 0x6B9AC4 },  // 부드러운 파랑
-      { id: 5, label: "노랑", color: 0xC8C67A },  // 부드러운 노랑
-      { id: 6, label: "분홍", color: 0xE75A7C },  // 부드러운 분홍
+      { id: 1, label: "빨강", color: 0xf85555 },   // 밝은 빨강
+      { id: 2, label: "주황", color: 0xffa54f },   // 밝은 주황
+      { id: 3, label: "노랑", color: 0xfff06b },   // 밝은 노랑
+      { id: 4, label: "연두", color: 0xa6e55c },   // 밝은 연두
+      { id: 5, label: "파랑", color: 0x5cb8e5 },   // 밝은 파랑
+      { id: 6, label: "분홍", color: 0xf06bce },   // 밝은 분홍
     ];
     this.questRemaining = {};
     this.colorDefinitions.forEach((def) => {
@@ -91,111 +94,161 @@ export default class GameScene extends Phaser.Scene {
     this.startTimer();
   }
 
-  // 점수/턴/콤보 텍스트 UI 생성
+  // 점수/턴/콤보 텍스트 UI 생성 (다크 테마)
   createUI() {
     const { width } = this.scale.gameSize;
 
     // 최고 점수 불러오기
     this.highScore = this.getHighScore();
 
-    // 시간 컨테이너 (중앙 - 둥근 흰색 박스)
-    this.timeContainer = this.add.container(0, 0).setDepth(100);
-
-    // 시간 배경 (둥근 모서리 효과)
-    this.timeBg = this.add.graphics();
-    this.timeBg.fillStyle(UI_COLORS.cardBg, 1);
-    this.timeBg.fillRoundedRect(-80, -25, 160, 50, 25);
-    this.timeBg.lineStyle(2, UI_COLORS.accent, 0.3);
-    this.timeBg.strokeRoundedRect(-80, -25, 160, 50, 25);
-
-    // 그림자 효과
-    this.timeShadow = this.add.graphics();
-    this.timeShadow.fillStyle(UI_COLORS.shadow, 0.15);
-    this.timeShadow.fillRoundedRect(-80, -23, 160, 50, 25);
-    this.timeContainer.add(this.timeShadow);
-    this.timeContainer.add(this.timeBg);
-
-    this.timeLabelText = this.add.text(0, -12, "TIME", {
-      fontSize: "10px",
-      fill: "#8B7355",
-      fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
-
-    this.timeText = this.add.text(0, 0, "30.0", {
+    // 게임 타이틀
+    this.titleText = this.add.text(width / 2, 20, "Ice Breaker!", {
       fontSize: "24px",
-      fill: "#2C2C2C",
+      fill: "#ffffff",
       fontStyle: "bold",
       fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
+    }).setOrigin(0.5, 0).setDepth(100);
 
-    this.timeContainer.add([this.timeLabelText, this.timeText]);
+    // 트로피 아이콘 (텍스트로 대체)
+    this.trophyIcon = this.add.text(0, 0, "🏆", {
+      fontSize: "28px",
+    }).setOrigin(0.5).setDepth(100);
 
-    // 점수 컨테이너 (왼쪽 - 둥근 흰색 박스)
-    this.scoreContainer = this.add.container(0, 0).setDepth(100);
-
-    this.scoreBg = this.add.graphics();
-    this.scoreBg.fillStyle(UI_COLORS.cardBg, 1);
-    this.scoreBg.fillRoundedRect(-45, -25, 90, 50, 25);
-    this.scoreBg.lineStyle(2, UI_COLORS.accent, 0.3);
-    this.scoreBg.strokeRoundedRect(-45, -25, 90, 50, 25);
-
-    this.scoreShadow = this.add.graphics();
-    this.scoreShadow.fillStyle(UI_COLORS.shadow, 0.15);
-    this.scoreShadow.fillRoundedRect(-45, -23, 90, 50, 25);
-    this.scoreContainer.add(this.scoreShadow);
-    this.scoreContainer.add(this.scoreBg);
-
-    this.scoreLabelText = this.add.text(0, -12, "SCORE", {
-      fontSize: "9px",
-      fill: "#8B7355",
-      fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
-
-    this.scoreText = this.add.text(0, 0, "0", {
-      fontSize: "20px",
-      fill: "#2C2C2C",
+    // 점수 (큰 숫자, 중앙)
+    this.scoreText = this.add.text(width / 2, 55, "0", {
+      fontSize: "48px",
+      fill: "#ffffff",
       fontStyle: "bold",
       fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
+    }).setOrigin(0.5, 0).setDepth(100);
 
-    this.scoreContainer.add([this.scoreLabelText, this.scoreText]);
+    // 일시정지 아이콘 (텍스트로 대체)
+    this.pauseIcon = this.add.text(0, 0, "⏸", {
+      fontSize: "28px",
+    }).setOrigin(0.5).setDepth(100);
 
-    // 최고 점수 (점수 컨테이너 아래)
-    this.highScoreText = this.add.text(0, 0, `BEST ${this.highScore.toLocaleString()}`, {
-      fontSize: "9px",
-      fill: "#8B7355",
+    // 정보 바 (BEST | TIME)
+    this.infoBg = this.add.graphics().setDepth(99);
+
+    this.infoContainer = this.add.container(width / 2, 120).setDepth(100);
+
+    this.bestLabelText = this.add.text(-60, 0, `🏆 ${this.highScore.toLocaleString()}`, {
+      fontSize: "14px",
+      fill: "#9999aa",
       fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
+    }).setOrigin(0.5).setDepth(100);
 
-    // 콤보 컨테이너 (오른쪽 - 둥근 흰색 박스)
+    this.dividerText = this.add.text(0, 0, "|", {
+      fontSize: "14px",
+      fill: "#4a4a6a",
+      fontFamily: "Arial",
+    }).setOrigin(0.5).setDepth(100);
+
+    this.timeIconText = this.add.text(60, 0, "⏱", {
+      fontSize: "14px",
+    }).setOrigin(0.5).setDepth(100);
+
+    this.timeValueText = this.add.text(90, 0, "30.0", {
+      fontSize: "14px",
+      fill: "#ffffff",
+      fontFamily: "Arial",
+    }).setOrigin(0, 0.5).setDepth(100);
+
+    this.infoContainer.add([this.bestLabelText, this.dividerText, this.timeIconText, this.timeValueText]);
+
+    // 시간 컨테이너 (별 아이콘 스타일)
+    this.timeContainer = this.add.container(width / 2, 155).setDepth(100);
+
+    this.starIcon = this.add.text(-30, 0, "✦", {
+      fontSize: "18px",
+      fill: "#ffd700",
+    }).setOrigin(0.5).setDepth(101);
+
+    this.timeText = this.add.text(10, 0, "30.0", {
+      fontSize: "18px",
+      fill: "#ffffff",
+      fontStyle: "bold",
+      fontFamily: "Arial",
+    }).setOrigin(0, 0.5).setDepth(101);
+
+    this.timeContainer.add([this.starIcon, this.timeText]);
+
+    // 콤보 컨테이너 (오른쪽 상단)
     this.comboContainer = this.add.container(0, 0).setDepth(100).setAlpha(0);
 
     this.comboBg = this.add.graphics();
-    this.comboBg.fillStyle(UI_COLORS.cardBg, 1);
-    this.comboBg.fillRoundedRect(-50, -25, 100, 50, 25);
-    this.comboBg.lineStyle(2, 0xFF6B9D, 0.5);
-    this.comboBg.strokeRoundedRect(-50, -25, 100, 50, 25);
-
-    this.comboShadow = this.add.graphics();
-    this.comboShadow.fillStyle(UI_COLORS.shadow, 0.15);
-    this.comboShadow.fillRoundedRect(-50, -23, 100, 50, 25);
-    this.comboContainer.add(this.comboShadow);
+    this.comboBg.fillStyle(0x2d2d44, 0.9);
+    this.comboBg.fillRoundedRect(-45, -20, 90, 40, 20);
+    this.comboBg.lineStyle(2, 0xffd700, 0.8);
+    this.comboBg.strokeRoundedRect(-45, -20, 90, 40, 20);
     this.comboContainer.add(this.comboBg);
 
-    this.comboLabelText = this.add.text(0, -12, "COMBO", {
-      fontSize: "10px",
-      fill: "#8B7355",
-      fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
-
     this.comboText = this.add.text(0, 0, "x2", {
-      fontSize: "20px",
-      fill: "#FF6B9D",
+      fontSize: "22px",
+      fill: "#ffd700",
       fontStyle: "bold",
       fontFamily: "Arial",
-    }).setOrigin(0.5, 0).setDepth(101);
+    }).setOrigin(0.5).setDepth(101);
 
-    this.comboContainer.add([this.comboLabelText, this.comboText]);
+    this.comboContainer.add(this.comboText);
+
+    // 하단 버튼 컨테이너
+    this.createBottomButtons();
+  }
+
+  // 하단 버튼 생성
+  createBottomButtons() {
+    const { width, height } = this.scale.gameSize;
+
+    this.bottomButtonsContainer = this.add.container(width / 2, height - 80).setDepth(100);
+
+    // 왼쪽 버튼 (셔플 기능)
+    this.leftButtonBg = this.add.graphics();
+    this.leftButtonBg.fillStyle(0x2d2d44, 1);
+    this.leftButtonBg.fillRoundedRect(-130, -30, 120, 60, 15);
+    this.leftButtonBg.lineStyle(2, 0x4a4a6a, 0.5);
+    this.leftButtonBg.strokeRoundedRect(-130, -30, 120, 60, 15);
+
+    this.leftButtonIcon = this.add.text(-95, -5, "🔄", {
+      fontSize: "24px",
+    }).setOrigin(0.5);
+
+    this.leftButtonText = this.add.text(-55, -5, "👑", {
+      fontSize: "16px",
+    }).setOrigin(0.5);
+
+    this.leftButtonValue = this.add.text(-30, -5, "100", {
+      fontSize: "14px",
+      fill: "#9999aa",
+      fontFamily: "Arial",
+    }).setOrigin(0, 0.5);
+
+    // 오른쪽 버튼 (힌트 기능)
+    this.rightButtonBg = this.add.graphics();
+    this.rightButtonBg.fillStyle(0x2d2d44, 1);
+    this.rightButtonBg.fillRoundedRect(10, -30, 120, 60, 15);
+    this.rightButtonBg.lineStyle(2, 0x4a4a6a, 0.5);
+    this.rightButtonBg.strokeRoundedRect(10, -30, 120, 60, 15);
+
+    this.rightButtonIcon = this.add.text(45, -5, "↗", {
+      fontSize: "24px",
+      fill: "#ffffff",
+    }).setOrigin(0.5);
+
+    this.rightButtonText = this.add.text(85, -5, "👑", {
+      fontSize: "16px",
+    }).setOrigin(0.5);
+
+    this.rightButtonValue = this.add.text(110, -5, "100", {
+      fontSize: "14px",
+      fill: "#9999aa",
+      fontFamily: "Arial",
+    }).setOrigin(0, 0.5);
+
+    this.bottomButtonsContainer.add([
+      this.leftButtonBg, this.leftButtonIcon, this.leftButtonText, this.leftButtonValue,
+      this.rightButtonBg, this.rightButtonIcon, this.rightButtonText, this.rightButtonValue
+    ]);
   }
 
   // localStorage에서 최고 점수 가져오기
@@ -326,7 +379,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // 단일 육각 타일 생성 및 클릭 이벤트 연결
+  // 단일 타일 생성 및 클릭 이벤트 연결 (둥근 모서리 정사각형)
   createIceTile(q, r, skipClusterCheck = false) {
     const pos = axialToPixel(q, r, this.tileSize);
     const { x, y } = pos;
@@ -339,16 +392,41 @@ export default class GameScene extends Phaser.Scene {
       // 초기 생성 시: 5개 이상 클러스터가 생기지 않는 HP 선택
       maxHp = this.getSafeHp(q, r);
     }
-    const textureKey = `tile_${maxHp - 1}`; // 개별 이미지 키
 
-    // 육각 타일 스프라이트 생성
+    // 컨테이너로 타일 묶기
+    const container = this.add.container(x, y);
+
+    // 타일 색상 가져오기
+    const colorDef = this.colorDefinitions[maxHp - 1];
+    const tileColor = colorDef ? colorDef.color : 0xffffff;
+
+    // 둥근 모서리 정사각형 타일 그리기
+    const tileSize = this.getTileDisplaySize() * 0.85;
+    const borderRadius = tileSize * 0.2;
+
+    // 그림자 효과
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.3);
+    shadow.fillRoundedRect(-tileSize / 2 + 2, -tileSize / 2 + 2, tileSize, tileSize, borderRadius);
+    container.add(shadow);
+
+    // 메인 타일 배경
+    const tileGraphics = this.add.graphics();
+    tileGraphics.fillStyle(tileColor, 1);
+    tileGraphics.fillRoundedRect(-tileSize / 2, -tileSize / 2, tileSize, tileSize, borderRadius);
+
+    // 하이라이트 효과 (상단)
+    tileGraphics.fillStyle(0xffffff, 0.3);
+    tileGraphics.fillRoundedRect(-tileSize / 2 + 4, -tileSize / 2 + 4, tileSize - 8, tileSize * 0.3, borderRadius * 0.5);
+
+    container.add(tileGraphics);
+
+    // 기존 스프라이트도 생성 (회전 애니메이션 호환성)
+    const textureKey = `tile_${maxHp - 1}`;
     const sprite = this.add.sprite(0, 0, textureKey);
     sprite.setOrigin(0.5);
-    sprite.setDisplaySize(this.getTileDisplaySize(), this.getTileDisplaySize());
-
-    // 컨테이너로 육각형과 텍스트 묶기
-    const container = this.add.container(x, y);
-    container.add(sprite);
+    sprite.setDisplaySize(tileSize, tileSize);
+    sprite.setVisible(false); // 숨김 처리 (Graphics 사용)
 
     // 좌표 디버그 텍스트 (q,r 표기)
     const positionText = this.add
@@ -358,7 +436,8 @@ export default class GameScene extends Phaser.Scene {
         fontStyle: "bold",
       })
       .setOrigin(0.5);
-    // container.add(positionText);
+    // container.add(positionText); // 디버그용
+
     this.gridContainer.add(container);
 
     // 타일 데이터
@@ -369,6 +448,8 @@ export default class GameScene extends Phaser.Scene {
       maxHp,
       container,
       sprite,
+      tileGraphics,
+      shadow,
       positionText,
       isBroken: false,
       relativePosition: { x: pos.x, y: pos.y },
@@ -486,12 +567,16 @@ export default class GameScene extends Phaser.Scene {
     tile.isBroken = true;
     this.applyQuestProgress(tile);
 
+    // 파괴 파티클 효과 (타일 색상 사용)
+    const colorDef = this.colorDefinitions[tile.maxHp - 1];
+    const tileColor = colorDef ? colorDef.color : 0xffffff;
+
     // 파괴 애니메이션
     this.tweens.add({
       targets: tile.container,
       alpha: 0,
-      scale: 1.5,
-      duration: 350,
+      scale: 1.3,
+      duration: 300,
       ease: "Back.easeIn",
       onComplete: () => {
         tile.container.destroy();
@@ -543,8 +628,10 @@ export default class GameScene extends Phaser.Scene {
       // 최고 점수 갱신 시 표시 업데이트
       if (this.score > this.highScore) {
         this.highScore = this.score;
-        this.highScoreText.setText(`BEST ${this.highScore.toLocaleString()}`);
-        this.highScoreText.setFill("#00d4ff");
+        if (this.bestLabelText) {
+          this.bestLabelText.setText(`🏆 ${this.highScore.toLocaleString()}`);
+          this.bestLabelText.setFill("#00d4ff");
+        }
       }
     }
 
@@ -615,14 +702,12 @@ export default class GameScene extends Phaser.Scene {
     const isVerySmall = width <= 360;
 
     // 폰트 크기 계산
-    const labelSize = isVerySmall ? 9 : isSmall ? 10 : 11;
-    const scoreSize = isVerySmall ? 22 : isSmall ? 24 : 28;
-    const timeSize = isVerySmall ? 26 : isSmall ? 28 : 32;
-    const comboSize = isVerySmall ? 22 : isSmall ? 24 : 28;
-    const bestSize = isVerySmall ? 8 : isSmall ? 9 : 10;
-
-    // UI 바 높이
-    const uiBarHeight = isVerySmall ? 65 : isSmall ? 70 : 80;
+    const titleSize = isVerySmall ? 20 : isSmall ? 22 : 24;
+    const scoreSize = isVerySmall ? 36 : isSmall ? 42 : 48;
+    const infoSize = isVerySmall ? 12 : isSmall ? 13 : 14;
+    const timeSize = isVerySmall ? 16 : isSmall ? 17 : 18;
+    const comboSize = isVerySmall ? 18 : isSmall ? 20 : 22;
+    const iconSize = isVerySmall ? 24 : isSmall ? 26 : 28;
 
     this.updateLayoutConfig(gameSize);
     this.layoutQuestUI(gameSize);
@@ -631,31 +716,46 @@ export default class GameScene extends Phaser.Scene {
       this.background.setSize(width, height);
     }
 
-    // 상단 UI 위치
-    const topY = isVerySmall ? 30 : isSmall ? 35 : 40;
-    const leftX = isVerySmall ? 65 : isSmall ? 70 : 80;
-    const rightX = width - leftX;
+    // 타이틀
+    this.titleText?.setFontSize(titleSize).setPosition(width / 2, 20);
 
-    // 점수 컨테이너 (왼쪽)
-    this.scoreContainer?.setPosition(leftX, topY);
-    this.scoreLabelText?.setFontSize(isVerySmall ? 8 : labelSize - 1);
-    this.scoreText?.setFontSize(isVerySmall ? 18 : isSmall ? 20 : 22);
-    this.highScoreText?.setFontSize(bestSize).setPosition(leftX, topY + 35);
+    // 트로피 & 일시정지 아이콘
+    const iconY = isVerySmall ? 70 : isSmall ? 75 : 80;
+    this.trophyIcon?.setFontSize(iconSize).setPosition(50, iconY);
+    this.pauseIcon?.setFontSize(iconSize).setPosition(width - 50, iconY);
 
-    // 시간 컨테이너 (중앙)
-    this.timeContainer?.setPosition(width / 2, topY);
-    this.timeLabelText?.setFontSize(isVerySmall ? 9 : labelSize);
-    this.timeText?.setFontSize(isVerySmall ? 20 : isSmall ? 22 : 24);
+    // 점수 (큰 숫자)
+    const scoreY = isVerySmall ? 50 : isSmall ? 55 : 55;
+    this.scoreText?.setFontSize(scoreSize).setPosition(width / 2, scoreY);
 
-    // 콤보 컨테이너 (오른쪽)
-    this.comboContainer?.setPosition(rightX, topY);
-    this.comboLabelText?.setFontSize(isVerySmall ? 9 : labelSize);
-    this.comboText?.setFontSize(isVerySmall ? 18 : isSmall ? 20 : 22);
+    // 정보 바
+    const infoY = isVerySmall ? 110 : isSmall ? 115 : 120;
+    this.infoContainer?.setPosition(width / 2, infoY);
+    this.bestLabelText?.setFontSize(infoSize);
+    this.dividerText?.setFontSize(infoSize);
+    this.timeIconText?.setFontSize(infoSize);
+    this.timeValueText?.setFontSize(infoSize);
 
-    this.uiTop = topY + 60;
+    // 시간 컨테이너 (별 아이콘)
+    const starY = isVerySmall ? 145 : isSmall ? 150 : 155;
+    this.timeContainer?.setPosition(width / 2, starY);
+    this.starIcon?.setFontSize(timeSize);
+    this.timeText?.setFontSize(timeSize);
+
+    // 콤보 컨테이너
+    const comboY = isVerySmall ? 145 : isSmall ? 150 : 155;
+    this.comboContainer?.setPosition(width - 80, comboY);
+    this.comboText?.setFontSize(comboSize);
+
+    // 하단 버튼 위치
+    this.bottomButtonsContainer?.setPosition(width / 2, height - 80);
+
+    // UI 영역 높이 계산
+    this.uiTop = starY + 40;
+    const bottomPadding = 120; // 하단 버튼 영역
 
     const gridCenterX = width / 2;
-    const gridCenterY = this.uiTop + (height - this.uiTop) / 2;
+    const gridCenterY = this.uiTop + (height - this.uiTop - bottomPadding) / 2;
 
     if (this.gridContainer) {
       this.gridContainer.setPosition(gridCenterX, gridCenterY);
@@ -687,7 +787,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.gridContainer) {
       const bounds = this.gridContainer.getBounds();
       const availableW = width - PADDING * 2;
-      const availableH = height - this.uiTop - PADDING * 2;
+      const availableH = height - this.uiTop - bottomPadding - PADDING * 2;
       const scale = Math.min(
         availableW / bounds.width,
         availableH / bounds.height,
@@ -696,25 +796,25 @@ export default class GameScene extends Phaser.Scene {
       this.gridContainer.setScale(scale);
       this.gridContainer.setPosition(gridCenterX, gridCenterY);
 
-      // 그리드 배경 그리기
+      // 그리드 배경 그리기 (다크 테마)
       if (this.gridBg && this.gridBgShadow) {
-        const padding = 30;
+        const padding = 25;
         const bgWidth = bounds.width * scale + padding * 2;
         const bgHeight = bounds.height * scale + padding * 2;
         const bgX = -bgWidth / 2;
         const bgY = -bgHeight / 2;
-        const radius = 30;
+        const radius = 20;
 
         // 그림자
         this.gridBgShadow.clear();
-        this.gridBgShadow.fillStyle(UI_COLORS.shadow, 0.15);
-        this.gridBgShadow.fillRoundedRect(bgX, bgY + 5, bgWidth, bgHeight, radius);
+        this.gridBgShadow.fillStyle(UI_COLORS.shadow, 0.3);
+        this.gridBgShadow.fillRoundedRect(bgX + 3, bgY + 3, bgWidth, bgHeight, radius);
 
-        // 배경
+        // 배경 (어두운 슬롯 색상)
         this.gridBg.clear();
-        this.gridBg.fillStyle(UI_COLORS.bg, 1);
+        this.gridBg.fillStyle(UI_COLORS.cardBg, 1);
         this.gridBg.fillRoundedRect(bgX, bgY, bgWidth, bgHeight, radius);
-        this.gridBg.lineStyle(3, UI_COLORS.accent, 0.3);
+        this.gridBg.lineStyle(2, UI_COLORS.accent, 0.5);
         this.gridBg.strokeRoundedRect(bgX, bgY, bgWidth, bgHeight, radius);
       }
 
@@ -853,11 +953,20 @@ export default class GameScene extends Phaser.Scene {
     if (!this.timeText) return;
     this.timeText.setText(this.timeLeft.toFixed(1));
 
+    // 정보 바의 시간도 업데이트
+    if (this.timeValueText) {
+      this.timeValueText.setText(this.timeLeft.toFixed(1));
+    }
+
     // 시간 경고 (10초 이하일 때 빨간색)
     if (this.timeLeft <= 10) {
       this.timeText.setFill("#ff6b6b");
+      if (this.timeValueText) this.timeValueText.setFill("#ff6b6b");
+      if (this.starIcon) this.starIcon.setFill("#ff6b6b");
     } else {
       this.timeText.setFill("#ffffff");
+      if (this.timeValueText) this.timeValueText.setFill("#ffffff");
+      if (this.starIcon) this.starIcon.setFill("#ffd700");
     }
   }
 
