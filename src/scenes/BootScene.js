@@ -53,18 +53,32 @@ export default class BootScene extends Phaser.Scene {
 
     this.loadingDimensions = { barWidth, barHeight, fontSize };
 
-    // 배경
+    // 배경 (다크 네이비)
     if (!this.background) {
-      this.background = this.add.rectangle(0, 0, width, height, 0xF5E6D3).setOrigin(0);
+      this.background = this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
     } else {
       this.background.setSize(width, height);
+    }
+
+    // 타이틀
+    if (!this.titleText) {
+      this.titleText = this.add
+        .text(width / 2, height / 2 - 100, "Ice Breaker!", {
+          fontSize: `${fontSize + 8}px`,
+          fill: "#ffffff",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5);
+    } else {
+      this.titleText.setFontSize(fontSize + 8);
+      this.titleText.setPosition(width / 2, height / 2 - 100);
     }
 
     if (!this.loadingText) {
       this.loadingText = this.add
         .text(width / 2, height / 2 - 50, "로딩중..", {
           fontSize: `${fontSize}px`,
-          fill: "#2C2C2C",
+          fill: "#9999aa",
           fontStyle: "bold",
         })
         .setOrigin(0.5);
@@ -77,21 +91,21 @@ export default class BootScene extends Phaser.Scene {
       this.progressBox = this.add.graphics();
     }
     this.progressBox.clear();
-    this.progressBox.fillStyle(0xE8D5C4, 1);
+    this.progressBox.fillStyle(0x2d2d44, 1);
     this.progressBox.fillRoundedRect(
       width / 2 - barWidth / 2,
       height / 2,
       barWidth,
       barHeight,
-      10
+      15
     );
-    this.progressBox.lineStyle(2, 0xD0BFA8, 0.5);
+    this.progressBox.lineStyle(2, 0x4a4a6a, 0.5);
     this.progressBox.strokeRoundedRect(
       width / 2 - barWidth / 2,
       height / 2,
       barWidth,
       barHeight,
-      10
+      15
     );
 
     if (!this.progressBar) {
@@ -109,15 +123,17 @@ export default class BootScene extends Phaser.Scene {
     const { barWidth, barHeight } = this.loadingDimensions;
 
     this.progressBar.clear();
-    this.progressBar.fillStyle(0xE75A7C, 1);
-    const innerBarWidth = barWidth - 20;
-    const innerBarHeight = barHeight - 20;
+    // 그라데이션 효과를 위한 밝은 색상
+    this.progressBar.fillStyle(0x00d4ff, 1);
+    const innerBarWidth = barWidth - 16;
+    const innerBarHeight = barHeight - 16;
+    const progressWidth = Math.max(innerBarHeight, innerBarWidth * value);
     this.progressBar.fillRoundedRect(
       width / 2 - innerBarWidth / 2,
-      height / 2 + 10,
-      innerBarWidth * value,
+      height / 2 + 8,
+      progressWidth,
       innerBarHeight,
-      8
+      12
     );
   }
 

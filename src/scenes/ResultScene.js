@@ -3,20 +3,21 @@ import Phaser from 'phaser';
 const MAX_TOP_SCORES = 5;
 const STORAGE_KEY = 'ice-breaker-top-scores';
 
-// 색상 테마
+// 색상 테마 (다크 모드)
 const COLORS = {
-  bg: 0xF5E6D3,        // 베이지 배경
-  cardBg: 0xFFFFFF,    // 흰색 카드
-  accent: 0xE8D5C4,    // 연한 베이지
-  gold: 0xFFD700,      // 금색
-  silver: 0xC0C0C0,    // 은색
-  bronze: 0xCD7F32,    // 동색
-  text: 0x2C2C2C,      // 어두운 회색 텍스트
-  textMuted: 0x8B7355, // 갈색 음영 텍스트
-  success: 0x4ADE80,   // 초록색
-  buttonBg: 0xE75A7C,  // 분홍색 버튼
-  buttonHover: 0xD14768, // 진한 분홍색
-  shadow: 0x000000,    // 그림자
+  bg: 0x1a1a2e,           // 다크 네이비 배경
+  cardBg: 0x2d2d44,       // 어두운 카드 배경
+  accent: 0x4a4a6a,       // 액센트 색상
+  gold: 0xFFD700,         // 금색
+  silver: 0xC0C0C0,       // 은색
+  bronze: 0xCD7F32,       // 동색
+  text: 0xFFFFFF,         // 흰색 텍스트
+  textMuted: 0x9999aa,    // 연한 회색 텍스트
+  success: 0x4ADE80,      // 초록색
+  buttonBg: 0x00d4ff,     // 시안 버튼
+  buttonHover: 0x00b8e6,  // 진한 시안
+  shadow: 0x000000,       // 그림자
+  highlight: 0x00d4ff,    // 하이라이트
 };
 
 export default class ResultScene extends Phaser.Scene {
@@ -35,13 +36,13 @@ export default class ResultScene extends Phaser.Scene {
     // 그라데이션 배경
     this.background = this.add.rectangle(0, 0, width, height, COLORS.bg).setOrigin(0);
 
-    // 상단 장식 라인
-    this.topLine = this.add.rectangle(width / 2, 0, width * 0.6, 4, COLORS.accent).setOrigin(0.5, 0);
+    // 상단 장식 라인 (시안 색상)
+    this.topLine = this.add.rectangle(width / 2, 0, width * 0.6, 4, 0x00d4ff).setOrigin(0.5, 0);
 
     // 타이틀
     this.titleText = this.add.text(width / 2, height * 0.08, 'GAME OVER', {
       fontSize: '36px',
-      fill: '#2C2C2C',
+      fill: '#ffffff',
       fontStyle: 'bold',
       fontFamily: 'Arial'
     }).setOrigin(0.5);
@@ -55,14 +56,14 @@ export default class ResultScene extends Phaser.Scene {
     // 점수 라벨
     this.scoreLabelText = this.add.text(width / 2, height * 0.17, 'YOUR SCORE', {
       fontSize: '14px',
-      fill: '#8B7355',
+      fill: '#9999aa',
       fontFamily: 'Arial'
     }).setOrigin(0.5);
 
     // 점수 숫자
     this.scoreText = this.add.text(width / 2, height * 0.24, this.finalScore.toLocaleString(), {
       fontSize: '52px',
-      fill: '#E75A7C',
+      fill: '#00d4ff',
       fontStyle: 'bold',
       fontFamily: 'Arial'
     }).setOrigin(0.5);
@@ -132,7 +133,7 @@ export default class ResultScene extends Phaser.Scene {
     // 순위표 제목
     this.leaderboardTitle = this.add.text(width / 2, startY, 'LEADERBOARD', {
       fontSize: '14px',
-      fill: '#8B7355',
+      fill: '#9999aa',
       fontFamily: 'Arial'
     }).setOrigin(0.5);
 
@@ -145,7 +146,7 @@ export default class ResultScene extends Phaser.Scene {
       const isCurrentScore = (rankNum === currentRank);
 
       // 랭크 메달 색상
-      let rankColor = '#6b7c8f';
+      let rankColor = '#9999aa';
       if (rankNum === 1) rankColor = '#ffd700';
       else if (rankNum === 2) rankColor = '#c0c0c0';
       else if (rankNum === 3) rankColor = '#cd7f32';
@@ -156,9 +157,9 @@ export default class ResultScene extends Phaser.Scene {
       if (isCurrentScore) {
         itemBgContainer = this.add.container(width / 2, y);
         itemBg = this.add.graphics();
-        itemBg.fillStyle(0xE75A7C, 0.15);
+        itemBg.fillStyle(0x00d4ff, 0.15);
         itemBg.fillRoundedRect(-(cardWidth - 20) / 2, -17, cardWidth - 20, 34, 17);
-        itemBg.lineStyle(2, 0xE75A7C, 0.5);
+        itemBg.lineStyle(2, 0x00d4ff, 0.5);
         itemBg.strokeRoundedRect(-(cardWidth - 20) / 2, -17, cardWidth - 20, 34, 17);
         itemBgContainer.add(itemBg);
       }
@@ -172,7 +173,7 @@ export default class ResultScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       // 점수
-      const scoreColor = isCurrentScore ? '#E75A7C' : '#2C2C2C';
+      const scoreColor = isCurrentScore ? '#00d4ff' : '#ffffff';
       const scoreText = this.add.text(width / 2 + cardWidth / 2 - 40, y, score > 0 ? score.toLocaleString() : '-', {
         fontSize: '18px',
         fill: scoreColor,
